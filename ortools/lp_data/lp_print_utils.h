@@ -39,6 +39,8 @@ inline std::string Stringify(const long double a) {
   return absl::StrFormat("%.19g", a);
 }
 
+inline std::string Stringify(const Fractional& a) { return a.str(); }
+
 // Returns a string "num/den" representing the rational approximation of x.
 // The absolute difference between the output fraction and the input "x" will
 // not exceed "precision".

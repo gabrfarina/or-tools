@@ -155,8 +155,9 @@ void InitialBasis::CompleteTriangularBasis(ColIndex num_cols,
     }
   }
   const Fractional kBixbyWeight = 1000.0;
-  max_scaled_abs_cost_ =
-      (max_scaled_abs_cost_ == 0.0) ? 1.0 : kBixbyWeight * max_scaled_abs_cost_;
+  max_scaled_abs_cost_ = (max_scaled_abs_cost_ == 0.0)
+                             ? Fractional{1.0}
+                             : kBixbyWeight * max_scaled_abs_cost_;
   std::priority_queue<ColIndex, std::vector<ColIndex>,
                       InitialBasis::TriangularColumnComparator>
       queue(residual_singleton_column.begin(), residual_singleton_column.end(),
@@ -227,7 +228,7 @@ int InitialBasis::GetMarosPriority(RowIndex row) const {
 
 template <bool only_allow_zero_cost_column>
 void InitialBasis::GetMarosBasis(ColIndex num_cols, RowToColMapping* basis) {
-  VLOG(1) << "Starting Maros crash procedure.";
+  std::cout << "Starting Maros crash procedure." << std::endl;
 
   // Initialize basis to the all-slack basis.
   const RowIndex num_rows = compact_matrix_.num_rows();
@@ -363,8 +364,9 @@ void InitialBasis::ComputeCandidates(ColIndex num_cols,
     }
   }
   const Fractional kBixbyWeight = 1000.0;
-  max_scaled_abs_cost_ =
-      (max_scaled_abs_cost_ == 0.0) ? 1.0 : kBixbyWeight * max_scaled_abs_cost_;
+  max_scaled_abs_cost_ = (max_scaled_abs_cost_ == 0.0)
+                             ? Fractional{1.0}
+                             : kBixbyWeight * max_scaled_abs_cost_;
   std::sort(candidates->begin(), candidates->end(), bixby_column_comparator_);
 }
 

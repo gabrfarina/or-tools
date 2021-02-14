@@ -77,8 +77,8 @@ class ColumnView {
       : num_entries_(num_entries), rows_(rows), coefficients_(coefficients) {}
   explicit ColumnView(const SparseColumn& column)
       : num_entries_(column.num_entries()),
-        rows_(column.index_),
-        coefficients_(column.coefficient_) {}
+        rows_(column.index_.data()),
+        coefficients_(column.coefficient_.data()) {}
   EntryIndex num_entries() const { return num_entries_; }
   Fractional EntryCoefficient(EntryIndex i) const {
     return coefficients_[i.value()];

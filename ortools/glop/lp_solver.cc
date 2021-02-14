@@ -25,6 +25,7 @@
 #include "ortools/base/timer.h"
 #include "ortools/glop/preprocessor.h"
 #include "ortools/glop/status.h"
+#include "ortools/lp_data/lp_print_utils.h"
 #include "ortools/lp_data/lp_types.h"
 #include "ortools/lp_data/lp_utils.h"
 #include "ortools/lp_data/proto_utils.h"
@@ -263,7 +264,7 @@ Fractional ProblemObjectiveValue(const LinearProgram& lp, Fractional value) {
 // Returns the allowed error magnitude for something that should evaluate to
 // value under the given tolerance.
 Fractional AllowedError(Fractional tolerance, Fractional value) {
-  return tolerance * std::max(1.0, std::abs(value));
+  return tolerance * std::max(Fractional{1.0}, std::abs(value));
 }
 }  // namespace
 
@@ -290,11 +291,11 @@ ProblemStatus LPSolver::LoadAndVerifySolution(const LinearProgram& lp,
   const Fractional primal_objective_value = ComputeObjective(lp);
   const Fractional dual_objective_value = ComputeDualObjective(lp);
   VLOG(1) << "Primal objective (before moving primal/dual values) = "
-          << absl::StrFormat("%.15E",
-                             ProblemObjectiveValue(lp, primal_objective_value));
+          << absl::StrFormat("%s", Stringify(ProblemObjectiveValue(
+                                       lp, primal_objective_value)));
   VLOG(1) << "Dual objective (before moving primal/dual values) = "
-          << absl::StrFormat("%.15E",
-                             ProblemObjectiveValue(lp, dual_objective_value));
+          << absl::StrFormat("%s", Stringify(ProblemObjectiveValue(
+                                       lp, dual_objective_value)));
 
   // Eventually move the primal/dual values inside their bounds.
   if (status == ProblemStatus::OPTIMAL &&
@@ -306,7 +307,7 @@ ProblemStatus LPSolver::LoadAndVerifySolution(const LinearProgram& lp,
   // The reported objective to the user.
   problem_objective_value_ = ProblemObjectiveValue(lp, ComputeObjective(lp));
   VLOG(1) << "Primal objective (after moving primal/dual values) = "
-          << absl::StrFormat("%.15E", problem_objective_value_);
+          << absl::StrFormat("%s", Stringify(problem_objective_value_));
 
   ComputeReducedCosts(lp);
   ComputeConstraintActivities(lp);
@@ -331,13 +332,13 @@ ProblemStatus LPSolver::LoadAndVerifySolution(const LinearProgram& lp,
                                                &rhs_perturbation_is_too_large);
   ComputeMaxCostPerturbationToEnforceOptimality(
       lp, &cost_perturbation_is_too_large);
-  const double primal_infeasibility =
+  const Fractional primal_infeasibility =
       ComputePrimalValueInfeasibility(lp, &primal_infeasibility_is_too_large);
-  const double dual_infeasibility =
+  const Fractional dual_infeasibility =
       ComputeDualValueInfeasibility(lp, &dual_infeasibility_is_too_large);
-  const double primal_residual =
+  const Fractional primal_residual =
       ComputeActivityInfeasibility(lp, &primal_residual_is_too_large);
-  const double dual_residual =
+  const Fractional dual_residual =
       ComputeReducedCostInfeasibility(lp, &dual_residual_is_too_large);
 
   // TODO(user): the name is not really consistent since in practice those are
@@ -354,7 +355,7 @@ ProblemStatus LPSolver::LoadAndVerifySolution(const LinearProgram& lp,
   // Now that all the relevant quantities are computed, we check the precision
   // and optimality of the result. See Chvatal pp. 61-62. If any of the tests
   // fail, we return the IMPRECISE status.
-  const double objective_error_ub = ComputeMaxExpectedObjectiveError(lp);
+  const Fractional objective_error_ub = ComputeMaxExpectedObjectiveError(lp);
   VLOG(1) << "Objective error <= " << objective_error_ub;
 
   if (status == ProblemStatus::OPTIMAL &&
@@ -412,15 +413,15 @@ bool LPSolver::IsOptimalSolutionOnFacet(const LinearProgram& lp) {
   // primal values.
   // TODO(user): investigate whether to use the tolerances defined in
   // parameters.proto.
-  const double kReducedCostTolerance = 1e-9;
-  const double kBoundTolerance = 1e-7;
+  const Fractional kReducedCostTolerance = 1e-9;
+  const Fractional kBoundTolerance = 1e-7;
   const ColIndex num_cols = lp.num_variables();
   for (ColIndex col(0); col < num_cols; ++col) {
     if (variable_statuses_[col] == VariableStatus::FIXED_VALUE) continue;
     const Fractional lower_bound = lp.variable_lower_bounds()[col];
     const Fractional upper_bound = lp.variable_upper_bounds()[col];
     const Fractional value = primal_values_[col];
-    if (AreWithinAbsoluteTolerance(reduced_costs_[col], 0.0,
+    if (AreWithinAbsoluteTolerance(reduced_costs_[col], Fractional{0.0},
                                    kReducedCostTolerance) &&
         (AreWithinAbsoluteTolerance(value, lower_bound, kBoundTolerance) ||
          AreWithinAbsoluteTolerance(value, upper_bound, kBoundTolerance))) {
@@ -433,7 +434,7 @@ bool LPSolver::IsOptimalSolutionOnFacet(const LinearProgram& lp) {
     const Fractional lower_bound = lp.constraint_lower_bounds()[row];
     const Fractional upper_bound = lp.constraint_upper_bounds()[row];
     const Fractional activity = constraint_activities_[row];
-    if (AreWithinAbsoluteTolerance(dual_values_[row], 0.0,
+    if (AreWithinAbsoluteTolerance(dual_values_[row], Fractional{0.0},
                                    kReducedCostTolerance) &&
         (AreWithinAbsoluteTolerance(activity, lower_bound, kBoundTolerance) ||
          AreWithinAbsoluteTolerance(activity, upper_bound, kBoundTolerance))) {
@@ -463,7 +464,7 @@ int LPSolver::GetNumberOfSimplexIterations() const {
   return num_revised_simplex_iterations_;
 }
 
-double LPSolver::DeterministicTime() const {
+Fractional LPSolver::DeterministicTime() const {
   return revised_simplex_ == nullptr ? 0.0
                                      : revised_simplex_->DeterministicTime();
 }
@@ -625,7 +626,8 @@ bool LPSolver::IsProblemSolutionConsistent(
       case VariableStatus::AT_UPPER_BOUND:
         // TODO(user): revert to an exact comparison once the bug causing this
         // to fail has been fixed.
-        if (!AreWithinAbsoluteTolerance(value, ub, 1e-7) || lb == ub) {
+        if (!AreWithinAbsoluteTolerance(value, ub, Fractional{1e-7}) ||
+            lb == ub) {
           LogVariableStatusError(col, value, status, lb, ub);
           return false;
         }
@@ -709,7 +711,8 @@ Fractional LPSolver::ComputeMaxCostPerturbationToEnforceOptimality(
   Fractional max_cost_correction = 0.0;
   const ColIndex num_cols = lp.num_variables();
   const Fractional optimization_sign = lp.IsMaximizationProblem() ? -1.0 : 1.0;
-  const Fractional tolerance = parameters_.solution_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.solution_feasibility_tolerance());
   for (ColIndex col(0); col < num_cols; ++col) {
     // We correct the reduced cost, so we have a minimization problem and
     // thus the dual objective value will be a lower bound of the primal
@@ -736,7 +739,8 @@ Fractional LPSolver::ComputeMaxRhsPerturbationToEnforceOptimality(
     const LinearProgram& lp, bool* is_too_large) {
   Fractional max_rhs_correction = 0.0;
   const RowIndex num_rows = lp.num_constraints();
-  const Fractional tolerance = parameters_.solution_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.solution_feasibility_tolerance());
   for (RowIndex row(0); row < num_rows; ++row) {
     const Fractional lower_bound = lp.constraint_lower_bounds()[row];
     const Fractional upper_bound = lp.constraint_upper_bounds()[row];
@@ -782,7 +786,7 @@ void LPSolver::ComputeReducedCosts(const LinearProgram& lp) {
   }
 }
 
-double LPSolver::ComputeObjective(const LinearProgram& lp) {
+Fractional LPSolver::ComputeObjective(const LinearProgram& lp) {
   const ColIndex num_cols = lp.num_variables();
   DCHECK_EQ(num_cols, primal_values_.size());
   KahanSum sum;
@@ -808,7 +812,7 @@ double LPSolver::ComputeObjective(const LinearProgram& lp) {
 // not be in the original problem so that the current dual solution is always
 // feasible. It also involves changing the rounding mode to obtain exact
 // confidence intervals on the reduced costs.
-double LPSolver::ComputeDualObjective(const LinearProgram& lp) {
+Fractional LPSolver::ComputeDualObjective(const LinearProgram& lp) {
   KahanSum dual_objective;
 
   // Compute the part coming from the row constraints.
@@ -871,25 +875,27 @@ double LPSolver::ComputeDualObjective(const LinearProgram& lp) {
   return dual_objective.Value();
 }
 
-double LPSolver::ComputeMaxExpectedObjectiveError(const LinearProgram& lp) {
+Fractional LPSolver::ComputeMaxExpectedObjectiveError(const LinearProgram& lp) {
   const ColIndex num_cols = lp.num_variables();
   DCHECK_EQ(num_cols, primal_values_.size());
-  const Fractional tolerance = parameters_.solution_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.solution_feasibility_tolerance());
   Fractional primal_objective_error = 0.0;
   for (ColIndex col(0); col < num_cols; ++col) {
     // TODO(user): Be more precise since the non-BASIC variables are exactly at
     // their bounds, so for them the error bound is just the term magnitude
-    // times std::numeric_limits<double>::epsilon() with KahanSum.
+    // times std::numeric_limits<Fractional>::epsilon() with KahanSum.
     primal_objective_error += std::abs(lp.objective_coefficients()[col]) *
                               AllowedError(tolerance, primal_values_[col]);
   }
   return primal_objective_error;
 }
 
-double LPSolver::ComputePrimalValueInfeasibility(const LinearProgram& lp,
-                                                 bool* is_too_large) {
-  double infeasibility = 0.0;
-  const Fractional tolerance = parameters_.solution_feasibility_tolerance();
+Fractional LPSolver::ComputePrimalValueInfeasibility(const LinearProgram& lp,
+                                                     bool* is_too_large) {
+  Fractional infeasibility = 0.0;
+  const Fractional tolerance =
+      FromString(parameters_.solution_feasibility_tolerance());
   const ColIndex num_cols = lp.num_variables();
   for (ColIndex col(0); col < num_cols; ++col) {
     const Fractional lower_bound = lp.variable_lower_bounds()[col];
@@ -916,12 +922,13 @@ double LPSolver::ComputePrimalValueInfeasibility(const LinearProgram& lp,
   return infeasibility;
 }
 
-double LPSolver::ComputeActivityInfeasibility(const LinearProgram& lp,
-                                              bool* is_too_large) {
-  double infeasibility = 0.0;
+Fractional LPSolver::ComputeActivityInfeasibility(const LinearProgram& lp,
+                                                  bool* is_too_large) {
+  Fractional infeasibility = 0.0;
   int num_problematic_rows(0);
   const RowIndex num_rows = lp.num_constraints();
-  const Fractional tolerance = parameters_.solution_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.solution_feasibility_tolerance());
   for (RowIndex row(0); row < num_rows; ++row) {
     const Fractional activity = constraint_activities_[row];
     const Fractional lower_bound = lp.constraint_lower_bounds()[row];
@@ -967,11 +974,12 @@ double LPSolver::ComputeActivityInfeasibility(const LinearProgram& lp,
   return infeasibility;
 }
 
-double LPSolver::ComputeDualValueInfeasibility(const LinearProgram& lp,
-                                               bool* is_too_large) {
-  const Fractional allowed_error = parameters_.solution_feasibility_tolerance();
+Fractional LPSolver::ComputeDualValueInfeasibility(const LinearProgram& lp,
+                                                   bool* is_too_large) {
+  const Fractional allowed_error =
+      FromString(parameters_.solution_feasibility_tolerance());
   const Fractional optimization_sign = lp.IsMaximizationProblem() ? -1.0 : 1.0;
-  double infeasibility = 0.0;
+  Fractional infeasibility = 0.0;
   const RowIndex num_rows = lp.num_constraints();
   for (RowIndex row(0); row < num_rows; ++row) {
     const Fractional dual_value = dual_values_[row];
@@ -991,12 +999,13 @@ double LPSolver::ComputeDualValueInfeasibility(const LinearProgram& lp,
   return infeasibility;
 }
 
-double LPSolver::ComputeReducedCostInfeasibility(const LinearProgram& lp,
-                                                 bool* is_too_large) {
+Fractional LPSolver::ComputeReducedCostInfeasibility(const LinearProgram& lp,
+                                                     bool* is_too_large) {
   const Fractional optimization_sign = lp.IsMaximizationProblem() ? -1.0 : 1.0;
-  double infeasibility = 0.0;
+  Fractional infeasibility = 0.0;
   const ColIndex num_cols = lp.num_variables();
-  const Fractional tolerance = parameters_.solution_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.solution_feasibility_tolerance());
   for (ColIndex col(0); col < num_cols; ++col) {
     const Fractional reduced_cost = reduced_costs_[col];
     const Fractional lower_bound = lp.variable_lower_bounds()[col];

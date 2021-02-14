@@ -54,11 +54,11 @@ bool AreColumnsProportional(const SparseColumn& a, const SparseColumn& b,
 
 // A column index together with its fingerprint. See ComputeFingerprint().
 struct ColumnFingerprint {
-  ColumnFingerprint(ColIndex _col, int64 _hash, double _value)
+  ColumnFingerprint(ColIndex _col, int64 _hash, Fractional _value)
       : col(_col), hash(_hash), value(_value) {}
   ColIndex col;
   int64 hash;
-  double value;
+  Fractional value;
 
   // This order has the property that if AreProportionalCandidates() is true for
   // two given columns, then in a sorted list of columns
@@ -74,7 +74,7 @@ struct ColumnFingerprint {
 
 // Two columns can be proportional only if:
 // - Their non-zero pattern hashes are the same.
-// - Their double fingerprints are close to each other.
+// - Their Fractional fingerprints are close to each other.
 bool AreProportionalCandidates(ColumnFingerprint a, ColumnFingerprint b,
                                Fractional tolerance) {
   if (a.hash != b.hash) return false;
@@ -83,7 +83,7 @@ bool AreProportionalCandidates(ColumnFingerprint a, ColumnFingerprint b,
 
 // The fingerprint of a column has two parts:
 // - A hash value of the column non-zero pattern.
-// - A double value which should be the same for two proportional columns
+// - A Fractional value which should be the same for two proportional columns
 //   modulo numerical errors.
 ColumnFingerprint ComputeFingerprint(ColIndex col, const SparseColumn& column) {
   int64 non_zero_pattern_hash = 0;
@@ -102,10 +102,10 @@ ColumnFingerprint ComputeFingerprint(ColIndex col, const SparseColumn& column) {
   // TODO(user): A better way to discriminate columns would be to take the
   // scalar product with a constant but random vector scaled by max_abs.
   DCHECK_NE(0.0, max_abs);
-  const double inverse_dynamic_range = min_abs / max_abs;
-  const double scaled_average =
+  const Fractional inverse_dynamic_range = min_abs / max_abs;
+  const Fractional scaled_average =
       std::abs(sum) /
-      (static_cast<double>(column.num_entries().value()) * max_abs);
+      (static_cast<Fractional>(column.num_entries().value()) * max_abs);
   return ColumnFingerprint(col, non_zero_pattern_hash,
                            inverse_dynamic_range + scaled_average);
 }

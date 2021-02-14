@@ -273,10 +273,10 @@ class DataWrapper<LinearProgram> {
            "the ROWS section.";
   }
   double ConstraintLowerBound(int row_index) {
-    return data_->constraint_lower_bounds()[RowIndex(row_index)];
+    return ToDouble(data_->constraint_lower_bounds()[RowIndex(row_index)]);
   }
   double ConstraintUpperBound(int row_index) {
-    return data_->constraint_upper_bounds()[RowIndex(row_index)];
+    return ToDouble(data_->constraint_upper_bounds()[RowIndex(row_index)]);
   }
 
   int FindOrCreateVariable(const std::string& name) {
@@ -296,10 +296,10 @@ class DataWrapper<LinearProgram> {
     return data_->IsVariableInteger(ColIndex(index));
   }
   double VariableLowerBound(int index) {
-    return data_->variable_lower_bounds()[ColIndex(index)];
+    return ToDouble(data_->variable_lower_bounds()[ColIndex(index)]);
   }
   double VariableUpperBound(int index) {
-    return data_->variable_upper_bounds()[ColIndex(index)];
+    return ToDouble(data_->variable_upper_bounds()[ColIndex(index)]);
   }
 
   absl::Status CreateIndicatorConstraint(std::string row_name, int col_index,
@@ -762,15 +762,15 @@ absl::Status MPSReaderImpl::StoreRightHandSide(const std::string& row_name,
 
   if (row_name != objective_name_) {
     const int row = data->FindOrCreateConstraint(row_name);
-    Fractional value;
+    double value;
     ASSIGN_OR_RETURN(value, GetDoubleFromString(row_value));
 
     // The row type is encoded in the bounds, so at this point we have either
     // (-kInfinity, 0.0], [0.0, 0.0] or [0.0, kInfinity). We use the right
     // hand side to change any finite bound.
-    const Fractional lower_bound =
+    const double lower_bound =
         (data->ConstraintLowerBound(row) == -kInfinity) ? -kInfinity : value;
-    const Fractional upper_bound =
+    const double upper_bound =
         (data->ConstraintUpperBound(row) == kInfinity) ? kInfinity : value;
     data->SetConstraintBounds(row, lower_bound, upper_bound);
   }
@@ -784,11 +784,11 @@ absl::Status MPSReaderImpl::StoreRange(const std::string& row_name,
   if (row_name.empty()) return absl::OkStatus();
 
   const int row = data->FindOrCreateConstraint(row_name);
-  Fractional range;
+  double range;
   ASSIGN_OR_RETURN(range, GetDoubleFromString(range_value));
 
-  Fractional lower_bound = data->ConstraintLowerBound(row);
-  Fractional upper_bound = data->ConstraintUpperBound(row);
+  double lower_bound = data->ConstraintLowerBound(row);
+  double upper_bound = data->ConstraintUpperBound(row);
   if (lower_bound == upper_bound) {
     if (range < 0.0) {
       lower_bound += range;
@@ -826,13 +826,13 @@ absl::Status MPSReaderImpl::StoreBound(const std::string& bound_type_mnemonic,
   }
   // Check that "binary by default" implies "integer".
   DCHECK(!is_binary_by_default_[col] || data->VariableIsInteger(col));
-  Fractional lower_bound = data->VariableLowerBound(col);
-  Fractional upper_bound = data->VariableUpperBound(col);
+  double lower_bound = data->VariableLowerBound(col);
+  double upper_bound = data->VariableUpperBound(col);
   // If a variable is binary by default, its status is reset if any bound
   // is set on it. We take care to restore the default bounds for general
   // integer variables.
   if (is_binary_by_default_[col]) {
-    lower_bound = Fractional(0.0);
+    lower_bound = 0.0;
     upper_bound = kInfinity;
   }
   switch (bound_type_id) {
@@ -859,15 +859,15 @@ absl::Status MPSReaderImpl::StoreBound(const std::string& bound_type_mnemonic,
       break;
     case NEGATIVE:
       lower_bound = -kInfinity;
-      upper_bound = Fractional(0.0);
+      upper_bound = 0.0;
       break;
     case POSITIVE:
-      lower_bound = Fractional(0.0);
+      lower_bound = 0.0;
       upper_bound = +kInfinity;
       break;
     case BINARY:
-      lower_bound = Fractional(0.0);
-      upper_bound = Fractional(1.0);
+      lower_bound = 0.0;
+      upper_bound = 1.0;
       break;
     case UNKNOWN_BOUND_TYPE:
     default:

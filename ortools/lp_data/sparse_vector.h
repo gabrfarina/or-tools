@@ -30,6 +30,8 @@
 #ifndef OR_TOOLS_LP_DATA_SPARSE_VECTOR_H_
 #define OR_TOOLS_LP_DATA_SPARSE_VECTOR_H_
 
+#include <sched.h>
+
 #include <algorithm>
 #include <cstring>
 #include <memory>
@@ -376,13 +378,12 @@ class SparseVector {
   // of an additional allocation - especially when the vectors are small.
   // Moreover, using two separate vectors/buffers would mean that even small
   // vectors would be spread across at least two different cache lines.
-  std::unique_ptr<char[]> buffer_;
   EntryIndex num_entries_;
   EntryIndex capacity_;
 
   // Pointers to the first elements of the index and coefficient arrays.
-  Index* index_;
-  Fractional* coefficient_;
+  std::vector<Index> index_;
+  std::vector<Fractional> coefficient_;
 
   // This is here to speed up the CheckNoDuplicates() methods and is mutable
   // so we can perform checks on const argument.
@@ -444,12 +445,13 @@ class SparseVectorEntry {
 
 template <typename IndexType, typename IteratorType>
 IteratorType SparseVector<IndexType, IteratorType>::begin() const {
-  return Iterator(this->index_, this->coefficient_, EntryIndex(0));
+  return Iterator(this->index_.data(), this->coefficient_.data(),
+                  EntryIndex(0));
 }
 
 template <typename IndexType, typename IteratorType>
 IteratorType SparseVector<IndexType, IteratorType>::end() const {
-  return Iterator(this->index_, this->coefficient_, num_entries_);
+  return Iterator(this->index_.data(), this->coefficient_.data(), num_entries_);
 }
 
 // --------------------------------------------------------
@@ -459,8 +461,8 @@ template <typename IndexType, typename IteratorType>
 SparseVector<IndexType, IteratorType>::SparseVector()
     : num_entries_(0),
       capacity_(0),
-      index_(nullptr),
-      coefficient_(nullptr),
+      index_(),
+      coefficient_(),
       may_contain_duplicates_(false) {}
 
 template <typename IndexType, typename IteratorType>
@@ -485,43 +487,46 @@ template <typename IndexType, typename IteratorType>
 void SparseVector<IndexType, IteratorType>::ClearAndRelease() {
   capacity_ = EntryIndex(0);
   num_entries_ = EntryIndex(0);
-  index_ = nullptr;
-  coefficient_ = nullptr;
-  buffer_.reset();
+  index_.clear();
+  coefficient_.clear();
+  // buffer_.reset();
   may_contain_duplicates_ = false;
 }
 
 template <typename IndexType, typename IteratorType>
 void SparseVector<IndexType, IteratorType>::Reserve(EntryIndex new_capacity) {
   if (new_capacity <= capacity_) return;
-  // Round up the capacity to a multiple of four. This way, the start of the
-  // coefficient array will be aligned to 16-bytes, provided that the buffer
-  // used for storing the data is aligned in that way.
-  if (new_capacity.value() & 3) {
-    new_capacity += EntryIndex(4 - (new_capacity.value() & 3));
-  }
-
-  const size_t index_buffer_size = new_capacity.value() * sizeof(Index);
-  const size_t value_buffer_size = new_capacity.value() * sizeof(Fractional);
-  const size_t new_buffer_size = index_buffer_size + value_buffer_size;
-  std::unique_ptr<char[]> new_buffer(new char[new_buffer_size]);
-  IndexType* const new_index = reinterpret_cast<Index*>(new_buffer.get());
-  Fractional* const new_coefficient =
-      reinterpret_cast<Fractional*>(new_index + new_capacity.value());
-
-  // Avoid copying the data if the vector is empty.
-  if (num_entries_ > 0) {
-    // NOTE(user): We use memmove instead of std::copy, because the latter
-    // leads to naive copying code when used with strong ints (a loop that
-    // copies a single 32-bit value in each iteration), and as of 06/2016,
-    // memmove is 3-4x faster on Haswell.
-    std::memmove(new_index, index_, sizeof(IndexType) * num_entries_.value());
-    std::memmove(new_coefficient, coefficient_,
-                 sizeof(Fractional) * num_entries_.value());
-  }
-  std::swap(buffer_, new_buffer);
-  index_ = new_index;
-  coefficient_ = new_coefficient;
+  // // Round up the capacity to a multiple of four. This way, the start of the
+  // // coefficient array will be aligned to 16-bytes, provided that the buffer
+  // // used for storing the data is aligned in that way.
+  // if (new_capacity.value() & 3) {
+  // new_capacity += EntryIndex(4 - (new_capacity.value() & 3));
+  // }
+  //
+  // const size_t index_buffer_size = new_capacity.value() * sizeof(Index);
+  // const size_t value_buffer_size = new_capacity.value() * sizeof(Fractional);
+  // const size_t new_buffer_size = index_buffer_size + value_buffer_size;
+  // std::unique_ptr<char[]> new_buffer(new char[new_buffer_size]);
+  // IndexType* const new_index = reinterpret_cast<Index*>(new_buffer.get());
+  // Fractional* const new_coefficient =
+  // reinterpret_cast<Fractional*>(new_index + new_capacity.value());
+  //
+  // // Avoid copying the data if the vector is empty.
+  // if (num_entries_ > 0) {
+  // // NOTE(user): We use memmove instead of std::copy, because the latter
+  // // leads to naive copying code when used with strong ints (a loop that
+  // // copies a single 32-bit value in each iteration), and as of 06/2016,
+  // // memmove is 3-4x faster on Haswell.
+  // std::memmove(new_index, index_, sizeof(IndexType) * num_entries_.value());
+  // std::copy(coefficient_, coefficient_ + num_entries_.value(),
+  // new_coefficient);
+  // }
+  // std::swap(buffer_, new_buffer);
+  // index_ = new_index;
+  // coefficient_ = new_coefficient;
+  //
+  index_.resize(new_capacity.value());
+  coefficient_.resize(new_capacity.value());
   capacity_ = new_capacity;
 }
 
@@ -532,7 +537,7 @@ bool SparseVector<IndexType, IteratorType>::IsEmpty() const {
 
 template <typename IndexType, typename IteratorType>
 void SparseVector<IndexType, IteratorType>::Swap(SparseVector* other) {
-  std::swap(buffer_, other->buffer_);
+  // std::swap(buffer_, other->buffer_);
   std::swap(num_entries_, other->num_entries_);
   std::swap(capacity_, other->capacity_);
   std::swap(may_contain_duplicates_, other->may_contain_duplicates_);
@@ -601,10 +606,14 @@ void SparseVector<IndexType, IteratorType>::PopulateFromSparseVector(
   // would not work correctly if this already had a greater capacity than
   // sparse_vector, because the coefficient_ pointer would be positioned
   // incorrectly.
-  std::memmove(index_, sparse_vector.index_,
-               sizeof(Index) * sparse_vector.num_entries_.value());
-  std::memmove(coefficient_, sparse_vector.coefficient_,
-               sizeof(Fractional) * sparse_vector.num_entries_.value());
+  std::copy(sparse_vector.index_.begin(),
+            sparse_vector.index_.begin() + sparse_vector.num_entries_.value(),
+            index_.begin());
+  std::copy(
+      sparse_vector.coefficient_.begin(),
+      sparse_vector.coefficient_.begin() + sparse_vector.num_entries_.value(),
+      coefficient_.begin());
+
   num_entries_ = sparse_vector.num_entries_;
   may_contain_duplicates_ = sparse_vector.may_contain_duplicates_;
 }
@@ -643,7 +652,7 @@ bool SparseVector<IndexType, IteratorType>::CheckNoDuplicates(
 
   // Update size if needed.
   const Index max_index =
-      *std::max_element(index_, index_ + num_entries_.value());
+      *std::max_element(index_.begin(), index_.begin() + num_entries_.value());
   if (boolean_vector->size() <= max_index) {
     boolean_vector->resize(max_index + 1, false);
   }
@@ -693,10 +702,11 @@ void SparseVector<IndexType, IteratorType>::DeleteEntry(Index index) {
   }
   if (i == end) return;
   const int num_moved_entries = (num_entries_ - i).value() - 1;
-  std::memmove(index_ + i.value(), index_ + i.value() + 1,
+  std::memmove(index_.data() + i.value(), index_.data() + i.value() + 1,
                sizeof(Index) * num_moved_entries);
-  std::memmove(coefficient_ + i.value(), coefficient_ + i.value() + 1,
-               sizeof(Fractional) * num_moved_entries);
+  std::copy(coefficient_.begin() + i.value() + 1,
+            coefficient_.begin() + i.value() + 1 + num_moved_entries,
+            coefficient_.begin() + i.value());
   --num_entries_;
 }
 

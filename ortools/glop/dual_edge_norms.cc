@@ -64,11 +64,12 @@ void DualEdgeNorms::UpdateBeforeBasisPivot(
   const Fractional estimated_edge_norms_accuracy =
       (sqrt(leaving_squared_norm) - sqrt(old_squared_norm)) /
       sqrt(leaving_squared_norm);
-  stats_.edge_norms_accuracy.Add(estimated_edge_norms_accuracy);
+  // XXX(gfarina): Do not force to double
+  stats_.edge_norms_accuracy.Add(ToDouble(estimated_edge_norms_accuracy));
   if (std::abs(estimated_edge_norms_accuracy) >
-      parameters_.recompute_edges_norm_threshold()) {
-    VLOG(1) << "Recomputing edge norms: " << sqrt(leaving_squared_norm)
-            << " vs " << sqrt(old_squared_norm);
+      FromString(parameters_.recompute_edges_norm_threshold())) {
+    std::cout << "Recomputing edge norms: " << sqrt(leaving_squared_norm)
+              << " vs " << sqrt(old_squared_norm) << std::endl;
     recompute_edge_squared_norms_ = true;
     return;
   }

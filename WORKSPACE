@@ -40,7 +40,7 @@ protobuf_deps()
 
 git_repository(
     name = "com_google_absl",
-    commit = "0f3bb46", # release 20200923.2
+    commit = "0f3bb46",  # release 20200923.2
     remote = "https://github.com/abseil/abseil-cpp.git",
 )
 
@@ -74,3 +74,13 @@ http_archive(
     url = "https://github.com/google/or-tools/releases/download/v7.7/scip-7.0.1.tgz",
 )
 
+git_repository(
+    name = "com_github_nelhage_rules_boost",
+    commit = "1e3a69bf2d5cd10c34b74f066054cd335d033d71",
+    remote = "https://github.com/nelhage/rules_boost",
+    shallow_since = "1591047380 -0700",
+)
+
+load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
+
+boost_deps()

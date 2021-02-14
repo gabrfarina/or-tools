@@ -16,6 +16,7 @@
 #include <limits>
 
 #include "absl/strings/str_format.h"
+#include "ortools/lp_data/lp_print_utils.h"
 #include "ortools/lp_data/lp_types.h"
 #include "ortools/lp_data/lp_utils.h"
 #include "ortools/lp_data/sparse.h"
@@ -62,7 +63,7 @@ Status Markowitz::ComputeRowAndColumnPermutation(
   // Perform Gaussian elimination.
   const int end_index = std::min(num_rows.value(), num_cols.value());
   const Fractional singularity_threshold =
-      parameters_.markowitz_singularity_threshold();
+      FromString(parameters_.markowitz_singularity_threshold());
   while (index < end_index) {
     Fractional pivot_coefficient = 0.0;
     RowIndex pivot_row = kInvalidRow;
@@ -82,7 +83,7 @@ Status Markowitz::ComputeRowAndColumnPermutation(
     if (pivot_row == kInvalidRow || pivot_col == kInvalidCol ||
         std::abs(pivot_coefficient) <= singularity_threshold) {
       const std::string error_message = absl::StrFormat(
-          "The matrix is singular! pivot = %E", pivot_coefficient);
+          "The matrix is singular! pivot = %s", Stringify(pivot_coefficient));
       VLOG(1) << "ERROR_LU: " << error_message;
       return Status(Status::ERROR_LU, error_message);
     }
@@ -383,7 +384,8 @@ int64 Markowitz::FindPivot(const RowPermutation& row_perm,
   int64 min_markowitz_number = std::numeric_limits<int64>::max();
   examined_col_.clear();
   const int num_columns_to_examine = parameters_.markowitz_zlatev_parameter();
-  const Fractional threshold = parameters_.lu_factorization_pivot_threshold();
+  const Fractional threshold =
+      FromString(parameters_.lu_factorization_pivot_threshold());
   while (examined_col_.size() < num_columns_to_examine) {
     const ColIndex col = col_by_degree_.Pop();
     if (col == kInvalidCol) break;

@@ -158,7 +158,8 @@ bool VariableValues::UpdatePrimalPhaseICosts(const Rows& rows,
                                              DenseRow* objective) {
   SCOPED_TIME_STAT(&stats_);
   bool changed = false;
-  const Fractional tolerance = parameters_.primal_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.primal_feasibility_tolerance());
   for (const RowIndex row : rows) {
     const ColIndex col = basis_[row];
     Fractional new_cost = 0.0;

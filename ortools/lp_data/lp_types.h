@@ -19,11 +19,14 @@
 #include <cmath>
 #include <limits>
 
+#include "external/boost/boost/multiprecision/mpfr.hpp"
 #include "ortools/base/basictypes.h"
 #include "ortools/base/int_type.h"
 #include "ortools/base/logging.h"
 #include "ortools/base/strong_vector.h"
 #include "ortools/util/bitset.h"
+
+namespace mp = boost::multiprecision;
 
 // We use typedefs as much as possible to later permit the usage of
 // types such as quad-doubles or rationals.
@@ -65,25 +68,33 @@ DEFINE_INT_TYPE(EntryIndex, int32);
 DEFINE_INT_TYPE(EntryIndex, int64);
 #endif
 
-static inline double ToDouble(double f) { return f; }
-
-static inline double ToDouble(long double f) { return static_cast<double>(f); }
-
 // The type Fractional denotes the type of numbers on which the computations are
 // performed. This is defined as double here, but it could as well be float,
 // DoubleDouble, QuadDouble, or infinite-precision rationals.
 // Floating-point representations are binary fractional numbers, thus the name.
 // (See http://en.wikipedia.org/wiki/Fraction_(mathematics) .)
-typedef double Fractional;
+typedef mp::number<mp::mpfr_float_backend<40>> Fractional;
+
+static inline double ToDouble(double f) { return f; }
+
+static inline double ToDouble(long double f) { return static_cast<double>(f); }
+
+static inline double ToDouble(const Fractional& f) {
+  return static_cast<double>(f);
+}
+
+static inline Fractional FromString(const std::string& s) {
+  return Fractional{s};
+}
 
 // Range max for type Fractional. DBL_MAX for double for example.
-const double kRangeMax = std::numeric_limits<double>::max();
+const Fractional kRangeMax = std::numeric_limits<Fractional>::max();
 
 // Infinity for type Fractional.
-const double kInfinity = std::numeric_limits<double>::infinity();
+const Fractional kInfinity = std::numeric_limits<Fractional>::infinity();
 
 // Epsilon for type Fractional, i.e. the smallest e such that 1.0 + e != 1.0 .
-const double kEpsilon = std::numeric_limits<double>::epsilon();
+const Fractional kEpsilon = std::numeric_limits<Fractional>::epsilon();
 
 // Returns true if the given value is finite, that means for a double:
 // not a NaN and not +/- infinity.
@@ -289,7 +300,7 @@ class StrictITIVector : public absl::StrongVector<IntType, T> {
   // Note that it only works with StrictITIVector of basic types.
   void AssignToZero(IntType size) {
     resize(size, 0);
-    memset(ParentType::data(), 0, size.value() * sizeof(T));
+    std::fill(ParentType::data(), ParentType::data() + size.value(), 0);
   }
 };
 
@@ -383,5 +394,15 @@ static inline double DeterministicTimeForFpOperations(int64 n) {
 
 }  // namespace glop
 }  // namespace operations_research
+
+namespace std {
+using mp::abs;
+using mp::fabs;
+using mp::isfinite;
+using mp::isnan;
+using mp::max;
+using mp::min;
+using mp::round;
+}  // namespace std
 
 #endif  // OR_TOOLS_LP_DATA_LP_TYPES_H_

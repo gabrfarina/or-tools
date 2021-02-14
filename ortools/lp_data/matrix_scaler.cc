@@ -72,17 +72,17 @@ std::string SparseMatrixScaler::DebugInformationString() const {
   matrix_->ComputeMinAndMaxMagnitudes(&min_magnitude, &max_magnitude);
   const Fractional dynamic_range = max_magnitude / min_magnitude;
   std::string output = absl::StrFormat(
-      "Min magnitude = %g, max magnitude = %g\n"
-      "Dynamic range = %g\n"
-      "Variance = %g\n"
-      "Minimum row scale = %g, maximum row scale = %g\n"
-      "Minimum col scale = %g, maximum col scale = %g\n",
-      min_magnitude, max_magnitude, dynamic_range,
-      VarianceOfAbsoluteValueOfNonZeros(),
-      *std::min_element(row_scale_.begin(), row_scale_.end()),
-      *std::max_element(row_scale_.begin(), row_scale_.end()),
-      *std::min_element(col_scale_.begin(), col_scale_.end()),
-      *std::max_element(col_scale_.begin(), col_scale_.end()));
+      "Min magnitude = %s, max magnitude = %s\n"
+      "Dynamic range = %s\n"
+      "Variance = %s\n"
+      "Minimum row scale = %s, maximum row scale = %s\n"
+      "Minimum col scale = %s, maximum col scale = %s\n",
+      Stringify(min_magnitude), Stringify(max_magnitude),
+      Stringify(dynamic_range), Stringify(VarianceOfAbsoluteValueOfNonZeros()),
+      Stringify(*std::min_element(row_scale_.begin(), row_scale_.end())),
+      Stringify(*std::max_element(row_scale_.begin(), row_scale_.end())),
+      Stringify(*std::min_element(col_scale_.begin(), col_scale_.end())),
+      Stringify(*std::max_element(col_scale_.begin(), col_scale_.end())));
   return output;
 }
 

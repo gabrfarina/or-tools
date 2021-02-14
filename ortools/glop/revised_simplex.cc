@@ -177,14 +177,15 @@ Status RevisedSimplex::Solve(const LinearProgram& lp, TimeLimit* time_limit) {
   }
 
   const bool use_dual = parameters_.use_dual_simplex();
-  VLOG(1) << "------ " << (use_dual ? "Dual simplex." : "Primal simplex.");
-  VLOG(1) << "The matrix has " << compact_matrix_.num_rows() << " rows, "
-          << compact_matrix_.num_cols() << " columns, "
-          << compact_matrix_.num_entries() << " entries.";
+  std::cout << "------ " << (use_dual ? "Dual simplex." : "Primal simplex.")
+            << std::endl;
+  std::cout << "The matrix has " << compact_matrix_.num_rows() << " rows, "
+            << compact_matrix_.num_cols() << " columns, "
+            << compact_matrix_.num_entries() << " entries." << std::endl;
 
   // TODO(user): Avoid doing the first phase checks when we know from the
   // incremental solve that the solution is already dual or primal feasible.
-  VLOG(1) << "------ First phase: feasibility.";
+  std::cout << "------ First phase: feasibility." << std::endl;
   entering_variable_.SetPricingRule(parameters_.feasibility_rule());
   if (use_dual) {
     if (parameters_.perturb_costs_in_dual_simplex()) {
@@ -238,7 +239,7 @@ Status RevisedSimplex::Solve(const LinearProgram& lp, TimeLimit* time_limit) {
   entering_variable_.SetPricingRule(parameters_.optimization_rule());
   num_feasibility_iterations_ = num_iterations_;
 
-  VLOG(1) << "------ Second phase: optimization.";
+  std::cout << "------ Second phase: optimization." << std::endl;
 
   // Because of shifts or perturbations, we may need to re-run a dual simplex
   // after the primal simplex finished, or the opposite.
@@ -256,7 +257,7 @@ Status RevisedSimplex::Solve(const LinearProgram& lp, TimeLimit* time_limit) {
        // We want to enter the loop when both num_optims and num_iterations_ are
        // *equal* to the corresponding limits (to return a meaningful status
        // when the limits are set to 0).
-       num_optims <= parameters_.max_number_of_reoptimizations() &&
+       num_optims <= FromString(parameters_.max_number_of_reoptimizations()) &&
        !objective_limit_reached_ &&
        (num_iterations_ == 0 ||
         num_iterations_ < parameters_.max_number_of_iterations()) &&
@@ -312,7 +313,8 @@ Status RevisedSimplex::Solve(const LinearProgram& lp, TimeLimit* time_limit) {
     // PRIMAL_UNBOUNDED with the primal on the problem l30.mps instead of
     // OPTIMAL and the dual does not have issues on this problem.
     if (problem_status_ == ProblemStatus::DUAL_UNBOUNDED) {
-      const Fractional tolerance = parameters_.solution_feasibility_tolerance();
+      const Fractional tolerance =
+          FromString(parameters_.solution_feasibility_tolerance());
       if (reduced_costs_.ComputeMaximumDualResidual() > tolerance ||
           variable_values_.ComputeMaximumPrimalResidual() > tolerance ||
           reduced_costs_.ComputeMaximumDualInfeasibility() > tolerance) {
@@ -326,7 +328,7 @@ Status RevisedSimplex::Solve(const LinearProgram& lp, TimeLimit* time_limit) {
     // problem is not OPTIMAL anymore.
     if (problem_status_ == ProblemStatus::OPTIMAL) {
       const Fractional solution_tolerance =
-          parameters_.solution_feasibility_tolerance();
+          FromString(parameters_.solution_feasibility_tolerance());
       if (variable_values_.ComputeMaximumPrimalResidual() >
               solution_tolerance ||
           reduced_costs_.ComputeMaximumDualResidual() > solution_tolerance) {
@@ -340,9 +342,9 @@ Status RevisedSimplex::Solve(const LinearProgram& lp, TimeLimit* time_limit) {
         // We use the "precise" tolerances here to try to report the best
         // possible solution.
         const Fractional primal_tolerance =
-            parameters_.primal_feasibility_tolerance();
+            FromString(parameters_.primal_feasibility_tolerance());
         const Fractional dual_tolerance =
-            parameters_.dual_feasibility_tolerance();
+            FromString(parameters_.dual_feasibility_tolerance());
         const Fractional primal_infeasibility =
             variable_values_.ComputeMaximumPrimalInfeasibility();
         const Fractional dual_infeasibility =
@@ -372,7 +374,8 @@ Status RevisedSimplex::Solve(const LinearProgram& lp, TimeLimit* time_limit) {
   // quantities are not up to date in this case.
   if (parameters_.change_status_to_imprecise() &&
       problem_status_ != ProblemStatus::DUAL_INFEASIBLE) {
-    const Fractional tolerance = parameters_.solution_feasibility_tolerance();
+    const Fractional tolerance =
+        FromString(parameters_.solution_feasibility_tolerance());
     if (variable_values_.ComputeMaximumPrimalResidual() > tolerance ||
         reduced_costs_.ComputeMaximumDualResidual() > tolerance) {
       problem_status_ = ProblemStatus::IMPRECISE;
@@ -877,7 +880,8 @@ void RevisedSimplex::InitializeObjectiveLimit(const LinearProgram& lp) {
   DCHECK_NE(0.0, objective_scaling_factor_);
 
   // This sets dual_objective_limit_ and then primal_objective_limit_.
-  const Fractional tolerance = parameters_.solution_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.solution_feasibility_tolerance());
   for (const bool set_dual : {true, false}) {
     // NOTE(user): If objective_scaling_factor_ is negative, the optimization
     // direction was reversed (during preprocessing or inside revised simplex),
@@ -890,9 +894,10 @@ void RevisedSimplex::InitializeObjectiveLimit(const LinearProgram& lp) {
     // Choose lower limit if using the dual simplex and scaling factor is
     // negative or if using the primal simplex and scaling is nonnegative, upper
     // limit otherwise.
-    const Fractional limit = (objective_scaling_factor_ >= 0.0) != set_dual
-                                 ? parameters_.objective_lower_limit()
-                                 : parameters_.objective_upper_limit();
+    const Fractional limit =
+        (objective_scaling_factor_ >= 0.0) != set_dual
+            ? FromString(parameters_.objective_lower_limit())
+            : FromString(parameters_.objective_upper_limit());
     const Fractional shifted_limit =
         limit / objective_scaling_factor_ - objective_offset_;
 
@@ -1137,11 +1142,12 @@ Status RevisedSimplex::InitializeFirstBasis(const RowToColMapping& basis) {
   // infinity upper bound.
   const Fractional condition_number_ub =
       basis_factorization_.ComputeInfinityNormConditionNumberUpperBound();
-  if (condition_number_ub > parameters_.initial_condition_number_threshold()) {
+  if (condition_number_ub >
+      FromString(parameters_.initial_condition_number_threshold())) {
     const std::string error_message =
         absl::StrCat("The matrix condition number upper bound is too high: ",
-                     condition_number_ub);
-    VLOG(1) << error_message;
+                     Stringify(condition_number_ub));
+    std::cout << error_message << std::endl;
     return Status(Status::ERROR_LU, error_message);
   }
 
@@ -1155,13 +1161,15 @@ Status RevisedSimplex::InitializeFirstBasis(const RowToColMapping& basis) {
   // that if we want to do that, we need to reset variables_info_ to a
   // consistent state.
   variable_values_.RecomputeBasicVariableValues();
-  if (VLOG_IS_ON(1)) {
-    const Fractional tolerance = parameters_.primal_feasibility_tolerance();
-    if (variable_values_.ComputeMaximumPrimalResidual() > tolerance) {
-      VLOG(1) << absl::StrCat(
-          "The primal residual of the initial basis is above the tolerance, ",
-          variable_values_.ComputeMaximumPrimalResidual(), " vs. ", tolerance);
-    }
+  const Fractional tolerance =
+      FromString(parameters_.primal_feasibility_tolerance());
+  if (variable_values_.ComputeMaximumPrimalResidual() > tolerance) {
+    std::cout << absl::StrCat(
+                     "The primal residual of the initial basis is above the "
+                     "tolerance, ",
+                     Stringify(variable_values_.ComputeMaximumPrimalResidual()),
+                     " vs. ", Stringify(tolerance))
+              << std::endl;
   }
   return Status::OK();
 }
@@ -1315,13 +1323,16 @@ Status RevisedSimplex::Initialize(const LinearProgram& lp) {
     if (InitializeFirstBasis(basis_).ok()) {
       solve_from_scratch = false;
     } else {
-      VLOG(1) << "RevisedSimplex is not using the warm start "
-                 "basis because it is not factorizable.";
+      std::cout << "RevisedSimplex is not using the warm start "
+                   "basis because it is not factorizable."
+                << std::endl;
+      return Status(Status::ErrorCode::INVALID_BASIS,
+                    "The supplied basis is not invertible");
     }
   }
 
   if (solve_from_scratch) {
-    VLOG(1) << "Solve from scratch.";
+    std::cout << "Solve from scratch." << std::endl;
     basis_factorization_.Clear();
     reduced_costs_.ClearAndRemoveCostShifts();
     primal_edge_norms_.Clear();
@@ -1329,9 +1340,9 @@ Status RevisedSimplex::Initialize(const LinearProgram& lp) {
     dual_pricing_vector_.clear();
     GLOP_RETURN_IF_ERROR(CreateInitialBasis());
   } else {
-    VLOG(1) << "Incremental solve.";
+    std::cout << "Incremental solve." << std::endl;
   }
-  DCHECK(BasisIsConsistent());
+  assert(BasisIsConsistent());
   return Status::OK();
 }
 
@@ -1346,7 +1357,8 @@ void RevisedSimplex::DisplayBasicVariableStatistics() {
 
   const DenseRow& variable_values = variable_values_.GetDenseRow();
   const VariableTypeRow& variable_types = variables_info_.GetTypeRow();
-  const Fractional tolerance = parameters_.primal_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.primal_feasibility_tolerance());
   for (RowIndex row(0); row < num_rows_; ++row) {
     const ColIndex col = basis_[row];
     const Fractional value = variable_values[col];
@@ -1423,8 +1435,9 @@ void RevisedSimplex::CorrectErrorsOnVariableValues() {
 
   // If the primal_residual is within the tolerance, no need to recompute
   // the basic variable values with a better precision.
-  if (primal_residual >= parameters_.harris_tolerance_ratio() *
-                             parameters_.primal_feasibility_tolerance()) {
+  if (primal_residual >=
+      FromString(parameters_.harris_tolerance_ratio()) *
+          FromString(parameters_.primal_feasibility_tolerance())) {
     variable_values_.RecomputeBasicVariableValues();
     VLOG(1) << "Primal infeasibility (bounds error) = "
             << variable_values_.ComputeMaximumPrimalInfeasibility()
@@ -1443,9 +1456,11 @@ void RevisedSimplex::CorrectErrorsOnVariableValues() {
   if (/* DISABLES CODE */ false &&
       (!feasibility_phase_ && num_consecutive_degenerate_iterations_ >= 100)) {
     VLOG(1) << "Perturbing the problem.";
-    const Fractional tolerance = parameters_.harris_tolerance_ratio() *
-                                 parameters_.primal_feasibility_tolerance();
-    std::uniform_real_distribution<double> dist(0, tolerance);
+    const Fractional tolerance =
+        FromString(parameters_.harris_tolerance_ratio()) *
+        FromString(parameters_.primal_feasibility_tolerance());
+    // XXX(gfarina): Use Fractional?
+    std::uniform_real_distribution<double> dist(0, ToDouble(tolerance));
     for (ColIndex col(0); col < num_cols_; ++col) {
       bound_perturbation_[col] += dist(random_);
     }
@@ -1526,10 +1541,11 @@ Fractional RevisedSimplex::ComputeHarrisRatioAndLeavingCandidates(
     Fractional bound_flip_ratio, SparseColumn* leaving_candidates) const {
   SCOPED_TIME_STAT(&function_stats_);
   const Fractional harris_tolerance =
-      parameters_.harris_tolerance_ratio() *
-      parameters_.primal_feasibility_tolerance();
-  const Fractional minimum_delta = parameters_.degenerate_ministep_factor() *
-                                   parameters_.primal_feasibility_tolerance();
+      FromString(parameters_.harris_tolerance_ratio()) *
+      FromString(parameters_.primal_feasibility_tolerance());
+  const Fractional minimum_delta =
+      FromString(parameters_.degenerate_ministep_factor()) *
+      FromString(parameters_.primal_feasibility_tolerance());
 
   // Initially, we can skip any variable with a ratio greater than
   // bound_flip_ratio since it seems to be always better to choose the
@@ -1541,9 +1557,10 @@ Fractional RevisedSimplex::ComputeHarrisRatioAndLeavingCandidates(
   // precision, so we only consider "acceptable" pivots. Otherwise we consider
   // all the entries, and if the algorithm return a pivot that is too small, we
   // will refactorize and recompute the relevant quantities.
-  const Fractional threshold = basis_factorization_.IsRefactorized()
-                                   ? parameters_.minimum_acceptable_pivot()
-                                   : parameters_.ratio_test_zero_threshold();
+  const Fractional threshold =
+      basis_factorization_.IsRefactorized()
+          ? FromString(parameters_.minimum_acceptable_pivot())
+          : FromString(parameters_.ratio_test_zero_threshold());
 
   for (const auto e : direction_) {
     const Fractional magnitude = std::abs(e.coefficient());
@@ -1695,8 +1712,8 @@ Status RevisedSimplex::ChooseLeavingVariableRow(
       // Instead of doing a zero step, we do a small positive step. This
       // helps on degenerate problems.
       const Fractional minimum_delta =
-          parameters_.degenerate_ministep_factor() *
-          parameters_.primal_feasibility_tolerance();
+          FromString(parameters_.degenerate_ministep_factor()) *
+          FromString(parameters_.primal_feasibility_tolerance());
       *step_length = minimum_delta / pivot_magnitude;
     } else {
       *step_length = current_ratio;
@@ -1719,8 +1736,8 @@ Status RevisedSimplex::ChooseLeavingVariableRow(
     // TODO(user): We may have to choose another entering column if
     // we cannot prevent pivoting by a small pivot.
     // (Chvatal, p.115, about epsilon2.)
-    if (pivot_magnitude <
-        parameters_.small_pivot_threshold() * direction_infinity_norm_) {
+    if (pivot_magnitude < FromString(parameters_.small_pivot_threshold()) *
+                              direction_infinity_norm_) {
       // The first countermeasure is to recompute everything to the best
       // precision we can in the hope of avoiding such a choice. Note that this
       // helps a lot on the Netlib problems.
@@ -1743,7 +1760,7 @@ Status RevisedSimplex::ChooseLeavingVariableRow(
               << " direction_infinity_norm_ = " << direction_infinity_norm_
               << " reduced cost = " << reduced_cost;
       DCHECK_GE(std::abs(direction_[*leaving_row]),
-                parameters_.minimum_acceptable_pivot());
+                FromString(parameters_.minimum_acceptable_pivot()));
       IF_STATS_ENABLED(ratio_test_stats_.abs_tested_pivot.Add(pivot_magnitude));
     }
     break;
@@ -1826,7 +1843,8 @@ void RevisedSimplex::PrimalPhaseIChooseLeavingVariableRow(
   DCHECK_GT(current_ratio, 0.0);
 
   std::vector<BreakPoint> breakpoints;
-  const Fractional tolerance = parameters_.primal_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.primal_feasibility_tolerance());
   for (const auto e : direction_) {
     const Fractional direction =
         reduced_cost > 0.0 ? e.coefficient() : -e.coefficient();
@@ -1903,7 +1921,8 @@ void RevisedSimplex::PrimalPhaseIChooseLeavingVariableRow(
   // Try to avoid a small pivot by refactorizing.
   if (*leaving_row != kInvalidRow) {
     const Fractional threshold =
-        parameters_.small_pivot_threshold() * direction_infinity_norm_;
+        FromString(parameters_.small_pivot_threshold()) *
+        direction_infinity_norm_;
     if (best_magnitude < threshold && !basis_factorization_.IsRefactorized()) {
       *refactorize = true;
       return;
@@ -1988,7 +2007,8 @@ void RevisedSimplex::DualPhaseIUpdatePrice(RowIndex leaving_row,
                                            ColIndex entering_col) {
   SCOPED_TIME_STAT(&function_stats_);
   const VariableTypeRow& variable_type = variables_info_.GetTypeRow();
-  const Fractional threshold = parameters_.ratio_test_zero_threshold();
+  const Fractional threshold =
+      FromString(parameters_.ratio_test_zero_threshold());
 
   // Convert the dual_pricing_vector_ from the old basis into the new one (which
   // is the same as multiplying it by an Eta matrix corresponding to the
@@ -2061,7 +2081,8 @@ void RevisedSimplex::DualPhaseIUpdatePriceOnReducedCostChange(
     initially_all_zero_scratchpad_.ClearSparseMask();
 
     const VariableTypeRow& variable_type = variables_info_.GetTypeRow();
-    const Fractional threshold = parameters_.ratio_test_zero_threshold();
+    const Fractional threshold =
+        FromString(parameters_.ratio_test_zero_threshold());
     basis_factorization_.RightSolve(&initially_all_zero_scratchpad_);
     if (initially_all_zero_scratchpad_.non_zeros.empty()) {
       for (RowIndex row(0); row < num_rows_; ++row) {
@@ -2287,8 +2308,9 @@ Status RevisedSimplex::UpdateAndPivot(ColIndex entering_col,
           ? VariableStatus::AT_LOWER_BOUND
           : VariableStatus::AT_UPPER_BOUND;
   if (variable_values_.Get(leaving_col) != target_bound) {
-    ratio_test_stats_.bound_shift.Add(variable_values_.Get(leaving_col) -
-                                      target_bound);
+    // XXX(gfarina): Do not force to double
+    ratio_test_stats_.bound_shift.Add(
+        ToDouble(variable_values_.Get(leaving_col) - target_bound));
   }
   UpdateBasis(entering_col, leaving_row, leaving_variable_status);
 
@@ -2297,7 +2319,7 @@ Status RevisedSimplex::UpdateAndPivot(ColIndex entering_col,
       update_row_.GetCoefficient(entering_col);
   const Fractional diff =
       std::abs(pivot_from_update_row - pivot_from_direction);
-  if (diff > parameters_.refactorization_threshold() *
+  if (diff > FromString(parameters_.refactorization_threshold()) *
                  (1 + std::abs(pivot_from_direction))) {
     VLOG(1) << "Refactorizing: imprecise pivot " << pivot_from_direction
             << " diff = " << diff;
@@ -2411,7 +2433,7 @@ Status RevisedSimplex::Polish(TimeLimit* time_limit) {
     // TODO(user): Count with more weight variable with a small domain, i.e.
     // binary variable, compared to a variable in [0, 1k] ?
     const auto get_diff = [this](ColIndex col, Fractional old_value,
-                                 Fractional new_value) {
+                                 Fractional new_value) -> Fractional {
       if (col >= integrality_scale_.size() || integrality_scale_[col] == 0.0) {
         return 0.0;
       }
@@ -2556,7 +2578,7 @@ Status RevisedSimplex::Minimize(TimeLimit* time_limit) {
           const Fractional primal_infeasibility =
               variable_values_.ComputeMaximumPrimalInfeasibility();
           if (primal_infeasibility <
-              parameters_.primal_feasibility_tolerance()) {
+              FromString(parameters_.primal_feasibility_tolerance())) {
             problem_status_ = ProblemStatus::PRIMAL_FEASIBLE;
           } else {
             VLOG(1) << "Infeasible problem! infeasibility = "
@@ -2929,7 +2951,8 @@ Status RevisedSimplex::DualMinimize(TimeLimit* time_limit) {
 
     // If the coefficient is too small, we recompute the reduced costs.
     const Fractional entering_coeff = update_row_.GetCoefficient(entering_col);
-    if (std::abs(entering_coeff) < parameters_.dual_small_pivot_threshold() &&
+    if (std::abs(entering_coeff) <
+            FromString(parameters_.dual_small_pivot_threshold()) &&
         !reduced_costs_.AreReducedCostsPrecise()) {
       VLOG(1) << "Trying not to pivot by " << entering_coeff;
       refactorize = true;
@@ -2942,7 +2965,7 @@ Status RevisedSimplex::DualMinimize(TimeLimit* time_limit) {
     // point exception below.
     ComputeDirection(entering_col);
     if (std::abs(direction_[leaving_row]) <
-        parameters_.minimum_acceptable_pivot()) {
+        FromString(parameters_.minimum_acceptable_pivot())) {
       VLOG(1) << "Do not pivot by " << entering_coeff
               << " because the direction is " << direction_[leaving_row];
       refactorize = true;
@@ -3004,7 +3027,8 @@ Status RevisedSimplex::DualMinimize(TimeLimit* time_limit) {
 
     // This is slow, but otherwise we have a really bad precision on the
     // variable values ...
-    if (std::abs(primal_step) * parameters_.primal_feasibility_tolerance() >
+    if (std::abs(primal_step) *
+            FromString(parameters_.primal_feasibility_tolerance()) >
         1.0) {
       refactorize = true;
     }
@@ -3073,37 +3097,42 @@ void RevisedSimplex::PropagateParameters() {
 }
 
 void RevisedSimplex::DisplayIterationInfo() const {
-  if (VLOG_IS_ON(1)) {
-    const int iter = feasibility_phase_
-                         ? num_iterations_
-                         : num_iterations_ - num_feasibility_iterations_;
-    // Note that in the dual phase II, ComputeObjectiveValue() is also computing
-    // the dual objective even if it uses the variable values. This is because
-    // if we modify the bounds to make the problem primal-feasible, we are at
-    // the optimal and hence the two objectives are the same.
-    const Fractional objective =
-        !feasibility_phase_
-            ? ComputeInitialProblemObjectiveValue()
-            : (parameters_.use_dual_simplex()
-                   ? reduced_costs_.ComputeSumOfDualInfeasibilities()
-                   : variable_values_.ComputeSumOfPrimalInfeasibilities());
-    VLOG(1) << (feasibility_phase_ ? "Feasibility" : "Optimization")
+  // if (VLOG_IS_ON(1)) {
+  const int iter = feasibility_phase_
+                       ? num_iterations_
+                       : num_iterations_ - num_feasibility_iterations_;
+  // Note that in the dual phase II, ComputeObjectiveValue() is also computing
+  // the dual objective even if it uses the variable values. This is because
+  // if we modify the bounds to make the problem primal-feasible, we are at
+  // the optimal and hence the two objectives are the same.
+  const Fractional objective =
+      !feasibility_phase_
+          ? ComputeInitialProblemObjectiveValue()
+          : (parameters_.use_dual_simplex()
+                 ? reduced_costs_.ComputeSumOfDualInfeasibilities()
+                 : variable_values_.ComputeSumOfPrimalInfeasibilities());
+  std::cout << (feasibility_phase_ ? "Feasibility" : "Optimization")
             << " phase, iteration # " << iter
-            << ", objective = " << absl::StrFormat("%.15E", objective);
+            << ", objective = " << Stringify(objective);
+  if (!feasibility_phase_) {
+    std::cout << "     [dual inf. = "
+              << Stringify(reduced_costs_.ComputeSumOfDualInfeasibilities())
+              << "]";
   }
+  std::cout << std::endl;
+  // }
 }
 
 void RevisedSimplex::DisplayErrors() const {
-  if (VLOG_IS_ON(1)) {
-    VLOG(1) << "Primal infeasibility (bounds) = "
-            << variable_values_.ComputeMaximumPrimalInfeasibility();
-    VLOG(1) << "Primal residual |A.x - b| = "
-            << variable_values_.ComputeMaximumPrimalResidual();
-    VLOG(1) << "Dual infeasibility (reduced costs) = "
-            << reduced_costs_.ComputeMaximumDualInfeasibility();
-    VLOG(1) << "Dual residual |c_B - y.B| = "
-            << reduced_costs_.ComputeMaximumDualResidual();
-  }
+  std::cout << "Primal infeasibility (bounds) = "
+            << variable_values_.ComputeMaximumPrimalInfeasibility()
+            << std::endl;
+  std::cout << "Primal residual |A.x - b| = "
+            << variable_values_.ComputeMaximumPrimalResidual() << std::endl;
+  std::cout << "Dual infeasibility (reduced costs) = "
+            << reduced_costs_.ComputeMaximumDualInfeasibility() << std::endl;
+  std::cout << "Dual residual |c_B - y.B| = "
+            << reduced_costs_.ComputeMaximumDualResidual() << std::endl;
 }
 
 namespace {

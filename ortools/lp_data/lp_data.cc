@@ -442,8 +442,8 @@ std::string LinearProgram::GetObjectiveStatsString() const {
   if (num_non_zeros == 0) {
     return "No objective term. This is a pure feasibility problem.";
   } else {
-    return absl::StrFormat("%d non-zeros, range [%e, %e]", num_non_zeros,
-                           min_value, max_value);
+    return absl::StrFormat("%d non-zeros, range [%s, %s]", num_non_zeros,
+                           Stringify(min_value), Stringify(max_value));
   }
 }
 
@@ -619,7 +619,7 @@ std::string LinearProgram::DumpSolution(const DenseRow& variable_values) const {
   for (ColIndex col(0); col < variable_values.size(); ++col) {
     if (!output.empty()) absl::StrAppend(&output, ", ");
     absl::StrAppend(&output, GetVariableName(col), " = ",
-                    (variable_values[col]));
+                    Stringify(variable_values[col]));
   }
   return output;
 }
@@ -1507,15 +1507,15 @@ bool LinearProgram::BoundsOfIntegerConstraintsAreInteger(
 std::string ProblemSolution::DebugString() const {
   std::string s = "Problem status: " + GetProblemStatusString(status);
   for (ColIndex col(0); col < primal_values.size(); ++col) {
-    absl::StrAppendFormat(&s, "\n  Var #%d: %s %g", col.value(),
+    absl::StrAppendFormat(&s, "\n  Var #%d: %s %s", col.value(),
                           GetVariableStatusString(variable_statuses[col]),
-                          primal_values[col]);
+                          Stringify(primal_values[col]));
   }
   s += "\n------------------------------";
   for (RowIndex row(0); row < dual_values.size(); ++row) {
-    absl::StrAppendFormat(&s, "\n  Constraint #%d: %s %g", row.value(),
+    absl::StrAppendFormat(&s, "\n  Constraint #%d: %s %s", row.value(),
                           GetConstraintStatusString(constraint_statuses[row]),
-                          dual_values[row]);
+                          Stringify(dual_values[row]));
   }
   return s;
 }

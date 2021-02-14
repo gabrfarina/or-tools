@@ -112,21 +112,21 @@ message GlopParameters {
   // - From update_row[entering_column].
   // If the two values have a relative difference above this threshold, we
   // trigger a refactorization.
-  optional double refactorization_threshold = 6 [default = 1e-9];
+  optional string refactorization_threshold = 6 [default = "1e-9"];
 
   // We estimate the accuracy of the iteratively computed reduced costs. If
   // it falls below this threshold, we reinitialize them from scratch. Note
   // that such an operation is pretty fast, so we can use a low threshold.
   // It is important to have a good accuracy here (better than the
   // dual_feasibility_tolerance below) to be sure of the sign of such a cost.
-  optional double recompute_reduced_costs_threshold = 8 [default = 1e-8];
+  optional string recompute_reduced_costs_threshold = 8 [default = "1e-8"];
 
   // Note that the threshold is a relative error on the actual norm (not the
   // squared one) and that edge norms are always greater than 1. Recomputing
   // norms is a really expensive operation and a large threshold is ok since
   // this doesn't impact directly the solution but just the entering variable
   // choice.
-  optional double recompute_edges_norm_threshold = 9 [default = 100.0];
+  optional string recompute_edges_norm_threshold = 9 [default = "100.0"];
 
   // The three following parameters correspond to the tolerance epsilon 1,2 and
   // 3 described in Chvatal p. 115 in the section "Zero Tolerances".
@@ -138,7 +138,7 @@ message GlopParameters {
   // magnitude on each column is 1.0.
   //
   // This is also simply called feasibility tolerance in other solvers.
-  optional double primal_feasibility_tolerance = 10 [default = 1e-8];
+  optional string primal_feasibility_tolerance = 10 [default = "1e-8"];
 
   // Variables whose reduced costs have an absolute value smaller than this
   // tolerance are not considered as entering candidates. That is they do not
@@ -150,7 +150,7 @@ message GlopParameters {
   // that the cost magnitude range contains one.
   //
   // This is also known as the optimality tolerance in other solvers.
-  optional double dual_feasibility_tolerance = 11 [default = 1e-8];
+  optional string dual_feasibility_tolerance = 11 [default = "1e-8"];
 
   // During the primal simplex (resp. dual simplex), the coefficients of the
   // direction (resp. update row) with a magnitude lower than this threshold are
@@ -159,7 +159,7 @@ message GlopParameters {
   //
   // TODO(user): Automatically increase it when we detect that the precision
   // of the Solve() is worse than this.
-  optional double ratio_test_zero_threshold = 12 [default = 1e-9];
+  optional string ratio_test_zero_threshold = 12 [default = "1e-9"];
 
   // This impacts the ratio test and indicates by how much we allow a basic
   // variable value that we move to go out of bounds. The value should be in
@@ -172,21 +172,21 @@ message GlopParameters {
   // Note that the same comment applies to the dual simplex ratio test. There,
   // we allow the reduced costs to be of an infeasible sign by as much as this
   // ratio times the dual_feasibility_tolerance.
-  optional double harris_tolerance_ratio = 13 [default = 0.5];
+  optional string harris_tolerance_ratio = 13 [default = "0.5"];
 
   // When we choose the leaving variable, we want to avoid small pivot because
   // they are the less precise and may cause numerical instabilities. For a
   // pivot under this threshold times the infinity norm of the direction, we try
   // various countermeasures in order to avoid using it.
-  optional double small_pivot_threshold = 14 [default = 1e-6];
+  optional string small_pivot_threshold = 14 [default = "1e-6"];
 
   // We never follow a basis change with a pivot under this threshold.
-  optional double minimum_acceptable_pivot = 15 [default = 1e-6];
+  optional string minimum_acceptable_pivot = 15 [default = "1e-6"];
 
   // In order to increase the sparsity of the manipulated vectors, floating
   // point values with a magnitude smaller than this parameter are set to zero
   // (only in some places). This parameter should be positive or zero.
-  optional double drop_tolerance = 52 [default = 1e-14];
+  optional string drop_tolerance = 52 [default = "1e-14"];
 
   // Whether or not we scale the matrix A so that the maximum coefficient on
   // each line and each column is 1.0.
@@ -237,7 +237,7 @@ message GlopParameters {
   // When solve_dual_problem is LET_SOLVER_DECIDE, take the dual if the number
   // of constraints of the problem is more than this threshold times the number
   // of variables.
-  optional double dualizer_threshold = 21 [default = 1.5];
+  optional string dualizer_threshold = 21 [default = "1.5"];
 
   // When the problem status is OPTIMAL, we check the optimality using this
   // relative tolerance and change the status to IMPRECISE if an issue is
@@ -247,7 +247,7 @@ message GlopParameters {
   // - tolerance * max(1.0, abs(bound)) for crossing a given bound.
   // - tolerance * max(1.0, abs(cost)) for an infeasible reduced cost.
   // - tolerance for an infeasible dual value.
-  optional double solution_feasibility_tolerance = 22 [default = 1e-6];
+  optional string solution_feasibility_tolerance = 22 [default = "1e-6"];
 
   // If true, then when the solver returns a solution with an OPTIMAL status,
   // we can guarantee that:
@@ -261,7 +261,7 @@ message GlopParameters {
   //
   // (*): This is the only place where the guarantee is not tight since we
   // compute the upper bounds with scalar product of the primal/dual
-  // solution and the initial problem coefficients with only double precision.
+  // solution and the initial problem coefficients with only string precision.
   //
   // Note that whether or not this option is true, we still check the
   // primal/dual infeasibility and objective gap. However if it is false, we
@@ -277,13 +277,13 @@ message GlopParameters {
   // opposite algorithm from that imprecise solution (i.e., if primal or dual
   // simplex was used, we use dual or primal simplex, respectively). We repeat
   // such re-optimization until the solution is precise, or we hit this limit.
-  optional double max_number_of_reoptimizations = 56 [default = 40];
+  optional string max_number_of_reoptimizations = 56 [default = "40"];
 
   // Threshold for LU-factorization: for stability reasons, the magnitude of the
   // chosen pivot at a given step is guaranteed to be greater than this
   // threshold times the maximum magnitude of all the possible pivot choices in
   // the same column. The value must be in [0,1].
-  optional double lu_factorization_pivot_threshold = 25 [default = 0.01];
+  optional string lu_factorization_pivot_threshold = 25 [default = "0.01"];
 
   // Maximum time allowed in seconds to solve a problem.
   optional double max_time_in_seconds = 26 [default = inf];
@@ -307,7 +307,7 @@ message GlopParameters {
   // factorization, then the matrix is assumed to be singular. Note that
   // this is an absolute threshold and is not relative to the other possible
   // pivots on the same column (see lu_factorization_pivot_threshold).
-  optional double markowitz_singularity_threshold = 30 [default = 1e-15];
+  optional string markowitz_singularity_threshold = 30 [default = "1e-15"];
 
   // Whether or not we use the dual simplex algorithm instead of the primal.
   optional bool use_dual_simplex = 31 [default = false];
@@ -344,7 +344,7 @@ message GlopParameters {
   // Like small_pivot_threshold but for the dual simplex. This is needed because
   // the dual algorithm does not interpret this value in the same way.
   // TODO(user): Clean this up and use the same small pivot detection.
-  optional double dual_small_pivot_threshold = 38 [default = 1e-4];
+  optional string dual_small_pivot_threshold = 38 [default = "1e-4"];
 
   // A floating point tolerance used by the preprocessors. This is used for
   // things like detecting if two columns/rows are proportional or if an
@@ -352,7 +352,7 @@ message GlopParameters {
   //
   // Note that the preprocessors also use solution_feasibility_tolerance() to
   // detect if a problem is infeasible.
-  optional double preprocessor_zero_tolerance = 39 [default = 1e-9];
+  optional string preprocessor_zero_tolerance = 39 [default = "1e-9"];
 
   // The solver will stop as soon as it has proven that the objective is smaller
   // than objective_lower_limit or greater than objective_upper_limit. Depending
@@ -360,8 +360,8 @@ message GlopParameters {
   // note that only one bound will be used at the time. The parameter
   // solution_objective_gap_tolerance is used as a relative tolerance to improve
   // the 'proven' guarantee.
-  optional double objective_lower_limit = 40 [default = -inf];
-  optional double objective_upper_limit = 41 [default = inf];
+  optional string objective_lower_limit = 40 [default = "-inf"];
+  optional string objective_upper_limit = 41 [default = "inf"];
 
   // During a degenerate iteration, the more conservative approach is to do a
   // step of length zero (while shifting the bound of the leaving variable).
@@ -381,7 +381,7 @@ message GlopParameters {
   //
   // Setting this to zero reverts to the more conservative approach of a zero
   // step during degenerate iterations.
-  optional double degenerate_ministep_factor = 42 [default = 0.01];
+  optional string degenerate_ministep_factor = 42 [default = "0.01"];
 
   // At the beginning of each solve, the random number generator used in some
   // part of the solver is reinitialized to this seed. If you change the random
@@ -414,12 +414,11 @@ message GlopParameters {
   // RandomIn(1.0, 2.0) * (
   //     relative_cost_perturbation * cost
   //   + relative_max_cost_perturbation * max_cost);
-  optional double relative_cost_perturbation = 54 [default = 1e-5];
-  optional double relative_max_cost_perturbation = 55 [default = 1e-7];
+  optional string relative_cost_perturbation = 54 [default = "1e-5"];
+  optional string relative_max_cost_perturbation = 55 [default = "1e-7"];
 
   // If our upper bound on the condition number of the initial basis (from our
   // heurisitic or a warm start) is above this threshold, we revert to an all
   // slack basis.
-  optional double initial_condition_number_threshold = 59 [default = 1e50];
-
+  optional string initial_condition_number_threshold = 59 [default = "1e50"];
 }

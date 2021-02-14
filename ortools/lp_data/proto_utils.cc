@@ -22,14 +22,15 @@ void LinearProgramToMPModelProto(const LinearProgram& input,
   output->Clear();
   output->set_name(input.name());
   output->set_maximize(input.IsMaximizationProblem());
-  output->set_objective_offset(input.objective_offset());
+  output->set_objective_offset(ToDouble(input.objective_offset()));
   for (ColIndex col(0); col < input.num_variables(); ++col) {
     MPVariableProto* variable = output->add_variable();
-    variable->set_lower_bound(input.variable_lower_bounds()[col]);
-    variable->set_upper_bound(input.variable_upper_bounds()[col]);
+    variable->set_lower_bound(ToDouble(input.variable_lower_bounds()[col]));
+    variable->set_upper_bound(ToDouble(input.variable_upper_bounds()[col]));
     variable->set_name(input.GetVariableName(col));
     variable->set_is_integer(input.IsVariableInteger(col));
-    variable->set_objective_coefficient(input.objective_coefficients()[col]);
+    variable->set_objective_coefficient(
+        ToDouble(input.objective_coefficients()[col]));
   }
   // We need the matrix transpose because a LinearProgram stores the data
   // column-wise but the MPModelProto uses a row-wise format.
@@ -37,12 +38,12 @@ void LinearProgramToMPModelProto(const LinearProgram& input,
   transpose.PopulateFromTranspose(input.GetSparseMatrix());
   for (RowIndex row(0); row < input.num_constraints(); ++row) {
     MPConstraintProto* constraint = output->add_constraint();
-    constraint->set_lower_bound(input.constraint_lower_bounds()[row]);
-    constraint->set_upper_bound(input.constraint_upper_bounds()[row]);
+    constraint->set_lower_bound(ToDouble(input.constraint_lower_bounds()[row]));
+    constraint->set_upper_bound(ToDouble(input.constraint_upper_bounds()[row]));
     constraint->set_name(input.GetConstraintName(row));
     for (const SparseColumn::Entry e : transpose.column(RowToColIndex(row))) {
       constraint->add_var_index(e.row().value());
-      constraint->add_coefficient(e.coefficient());
+      constraint->add_coefficient(ToDouble(e.coefficient()));
     }
   }
 }

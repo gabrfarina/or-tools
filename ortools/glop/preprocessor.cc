@@ -19,6 +19,7 @@
 #include "ortools/glop/revised_simplex.h"
 #include "ortools/glop/status.h"
 #include "ortools/lp_data/lp_data_utils.h"
+#include "ortools/lp_data/lp_print_utils.h"
 #include "ortools/lp_data/lp_types.h"
 #include "ortools/lp_data/lp_utils.h"
 #include "ortools/lp_data/matrix_utils.h"
@@ -31,7 +32,7 @@ using ::util::Reverse;
 namespace {
 // Returns an interval as an human readable string for debugging.
 std::string IntervalString(Fractional lb, Fractional ub) {
-  return absl::StrFormat("[%g, %g]", lb, ub);
+  return absl::StrFormat("[%s, %s]", Stringify(lb), Stringify(ub));
 }
 
 #if defined(_MSC_VER)
@@ -320,7 +321,7 @@ Fractional MinInMagnitudeOrZeroIfInfinite(Fractional a, Fractional b) {
 }
 
 Fractional MagnitudeOrZeroIfInfinite(Fractional value) {
-  return IsFinite(value) ? std::abs(value) : 0.0;
+  return IsFinite(value) ? std::abs(value) : Fractional{0.0};
 }
 
 // Returns the maximum magnitude of the finite variable bounds of the given
@@ -441,7 +442,8 @@ bool ProportionalColumnPreprocessor::Run(LinearProgram* lp) {
   SCOPED_INSTRUCTION_COUNT(time_limit_);
   RETURN_VALUE_IF_NULL(lp, false);
   ColMapping mapping = FindProportionalColumns(
-      lp->GetSparseMatrix(), parameters_.preprocessor_zero_tolerance());
+      lp->GetSparseMatrix(),
+      FromString(parameters_.preprocessor_zero_tolerance()));
 
   // Compute some statistics and make each class representative point to itself
   // in the mapping. Also store the columns that are proportional to at least
@@ -606,7 +608,7 @@ bool ProportionalColumnPreprocessor::Run(LinearProgram* lp) {
     for (++i; i < sorted_columns.size(); ++i) {
       if (sorted_columns[i].representative != target_representative) break;
       if (std::abs(sorted_columns[i].scaled_cost - target_scaled_cost) >=
-          parameters_.preprocessor_zero_tolerance()) {
+          FromString(parameters_.preprocessor_zero_tolerance())) {
         break;
       }
       ++num_merged;
@@ -731,8 +733,8 @@ void ProportionalColumnPreprocessor::RecoverSolution(
           distance_to_bound[representative] -= width * std::abs(bound_factor);
         } else {
           solution->primal_values[col] =
-              to_upper_bound ? upper_bounds_[col] - scaled_distance
-                             : lower_bounds_[col] + scaled_distance;
+              to_upper_bound ? Fractional{upper_bounds_[col] - scaled_distance}
+                             : Fractional{lower_bounds_[col] + scaled_distance};
           solution->variable_statuses[col] =
               is_representative_basic[representative]
                   ? VariableStatus::BASIC
@@ -813,7 +815,7 @@ bool ProportionalRowPreprocessor::Run(LinearProgram* lp) {
   // itself for the loop below. TODO(user): Already return such a mapping from
   // FindProportionalColumns()?
   ColMapping mapping = FindProportionalColumns(
-      transpose, parameters_.preprocessor_zero_tolerance());
+      transpose, FromString(parameters_.preprocessor_zero_tolerance()));
   DenseBooleanColumn is_a_representative(num_rows, false);
   int num_proportional_rows = 0;
   for (RowIndex row(0); row < num_rows; ++row) {
@@ -1596,7 +1598,7 @@ bool DoubletonFreeColumnPreprocessor::Run(LinearProgram* lp) {
     // column r.col where the coefficient will be left unchanged.
     r.deleted_row_as_column.AddMultipleToSparseVectorAndIgnoreCommonIndex(
         -r.coeff[MODIFIED] / r.coeff[DELETED], ColToRowIndex(r.col),
-        parameters_.drop_tolerance(),
+        FromString(parameters_.drop_tolerance()),
         transpose->mutable_column(RowToColIndex(r.row[MODIFIED])));
 
     // We also need to correct the objective value of the variables involved in
@@ -1613,7 +1615,8 @@ bool DoubletonFreeColumnPreprocessor::Run(LinearProgram* lp) {
         // the numerical error in the formula above, we have a really low
         // objective instead. The logic is the same as in
         // AddMultipleToSparseVectorAndIgnoreCommonIndex().
-        if (std::abs(new_objective) > parameters_.drop_tolerance()) {
+        if (std::abs(new_objective) >
+            FromString(parameters_.drop_tolerance())) {
           lp->SetObjectiveCoefficient(col, new_objective);
         } else {
           lp->SetObjectiveCoefficient(col, 0.0);
@@ -1769,7 +1772,8 @@ bool UnconstrainedVariablePreprocessor::Run(LinearProgram* lp) {
   //
   // TODO(user): Expose it as a parameter. We could rename both to
   // preprocessor_low_tolerance and preprocessor_high_tolerance.
-  const Fractional low_tolerance = parameters_.preprocessor_zero_tolerance();
+  const Fractional low_tolerance =
+      FromString(parameters_.preprocessor_zero_tolerance());
   const Fractional high_tolerance = 1e-4;
 
   // We start by the dual variable bounds from the constraints.
@@ -2174,7 +2178,7 @@ void SingletonPreprocessor::DeleteSingletonRow(MatrixEntry e,
   const Fractional old_upper_bound = lp->variable_upper_bounds()[e.col];
 
   const Fractional potential_error =
-      std::abs(parameters_.preprocessor_zero_tolerance() / e.coeff);
+      std::abs(FromString(parameters_.preprocessor_zero_tolerance()) / e.coeff);
   Fractional new_lower_bound =
       implied_lower_bound - potential_error > old_lower_bound
           ? implied_lower_bound
@@ -2310,7 +2314,8 @@ bool SingletonPreprocessor::IntegerSingletonColumnIsRemovable(
     const Fractional coefficient_ratio = coefficient / matrix_entry.coeff;
     // Check if coefficient_ratio is integer.
     if (!IsIntegerWithinTolerance(
-            coefficient_ratio, parameters_.solution_feasibility_tolerance())) {
+            coefficient_ratio,
+            FromString(parameters_.solution_feasibility_tolerance()))) {
       return false;
     }
   }
@@ -2319,7 +2324,8 @@ bool SingletonPreprocessor::IntegerSingletonColumnIsRemovable(
   if (IsFinite(constraint_lb)) {
     const Fractional lower_bound_ratio = constraint_lb / matrix_entry.coeff;
     if (!IsIntegerWithinTolerance(
-            lower_bound_ratio, parameters_.solution_feasibility_tolerance())) {
+            lower_bound_ratio,
+            FromString(parameters_.solution_feasibility_tolerance()))) {
       return false;
     }
   }
@@ -2328,7 +2334,8 @@ bool SingletonPreprocessor::IntegerSingletonColumnIsRemovable(
   if (IsFinite(constraint_ub)) {
     const Fractional upper_bound_ratio = constraint_ub / matrix_entry.coeff;
     if (!IsIntegerWithinTolerance(
-            upper_bound_ratio, parameters_.solution_feasibility_tolerance())) {
+            upper_bound_ratio,
+            FromString(parameters_.solution_feasibility_tolerance()))) {
       return false;
     }
   }
@@ -2391,7 +2398,8 @@ void SingletonUndo::ZeroCostSingletonColumnUndo(
   // constraint VariableStatus::BASIC. Note that we use the same logic as in
   // Preprocessor::IsSmallerWithinPreprocessorZeroTolerance() which we can't use
   // here because we are not deriving from the Preprocessor class.
-  const Fractional tolerance = parameters.preprocessor_zero_tolerance();
+  const Fractional tolerance =
+      FromString(parameters.preprocessor_zero_tolerance());
   const auto is_smaller_with_tolerance = [tolerance](Fractional a,
                                                      Fractional b) {
     return ::operations_research::IsSmallerWithinTolerance(a, b, tolerance);
@@ -2494,7 +2502,8 @@ void SingletonPreprocessor::DeleteSingletonColumnInEquality(
       // tolerances in a few preprocessors. Like an empty column with a cost of
       // 1e-17 and unbounded towards infinity is currently implying that the
       // problem is unbounded. This will need fixing.
-      if (std::abs(new_cost) < parameters_.preprocessor_zero_tolerance()) {
+      if (std::abs(new_cost) <
+          FromString(parameters_.preprocessor_zero_tolerance())) {
         new_cost = 0.0;
       }
       lp->SetObjectiveCoefficient(col, new_cost);
@@ -2831,7 +2840,8 @@ bool RemoveNearZeroEntriesPreprocessor::Run(LinearProgram* lp) {
   }
 
   // To not have too many parameters, we use the preprocessor_zero_tolerance.
-  const Fractional allowed_impact = parameters_.preprocessor_zero_tolerance();
+  const Fractional allowed_impact =
+      FromString(parameters_.preprocessor_zero_tolerance());
 
   // TODO(user): Our criteria ensure that during presolve a primal feasible
   // solution will stay primal feasible. However, we have no guarantee on the
@@ -3079,7 +3089,7 @@ bool DoubletonEqualityRowPreprocessor::Run(LinearProgram* lp) {
       break;
     }
     r.column[DELETED].AddMultipleToSparseVectorAndDeleteCommonIndex(
-        substitution_factor, row, parameters_.drop_tolerance(),
+        substitution_factor, row, FromString(parameters_.drop_tolerance()),
         lp->GetMutableSparseColumn(r.col[MODIFIED]));
 
     // Apply similar operations on the objective coefficients.
@@ -3089,7 +3099,7 @@ bool DoubletonEqualityRowPreprocessor::Run(LinearProgram* lp) {
       const Fractional new_objective =
           r.objective_coefficient[MODIFIED] +
           substitution_factor * r.objective_coefficient[DELETED];
-      if (std::abs(new_objective) > parameters_.drop_tolerance()) {
+      if (std::abs(new_objective) > FromString(parameters_.drop_tolerance())) {
         lp->SetObjectiveCoefficient(r.col[MODIFIED], new_objective);
       } else {
         lp->SetObjectiveCoefficient(r.col[MODIFIED], 0.0);
@@ -3261,7 +3271,8 @@ bool DualizerPreprocessor::Run(LinearProgram* lp) {
   // variables as slack variable which we are not doing at this point.
   if (parameters_.solve_dual_problem() == GlopParameters::LET_SOLVER_DECIDE) {
     if (1.0 * primal_num_rows_.value() <
-        parameters_.dualizer_threshold() * primal_num_cols_.value()) {
+        FromString(parameters_.dualizer_threshold()) *
+            primal_num_cols_.value()) {
       return false;
     }
   }

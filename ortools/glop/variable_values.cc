@@ -136,7 +136,7 @@ Fractional VariableValues::ComputeSumOfPrimalInfeasibilities() const {
   for (ColIndex col(0); col < num_cols; ++col) {
     const Fractional col_infeasibility = std::max(
         GetUpperBoundInfeasibility(col), GetLowerBoundInfeasibility(col));
-    sum += std::max(0.0, col_infeasibility);
+    sum += std::max(Fractional{0.0}, col_infeasibility);
   }
   return sum;
 }
@@ -229,7 +229,8 @@ void VariableValues::ResetPrimalInfeasibilityInformation() {
   primal_squared_infeasibilities_.resize(num_rows, 0.0);
   primal_infeasible_positions_.ClearAndResize(num_rows);
 
-  const Fractional tolerance = parameters_.primal_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.primal_feasibility_tolerance());
   for (RowIndex row(0); row < num_rows; ++row) {
     const ColIndex col = basis_[row];
     const Fractional infeasibility = std::max(GetUpperBoundInfeasibility(col),
@@ -251,7 +252,8 @@ void VariableValues::UpdatePrimalInfeasibilityInformation(
   // Note(user): this is the same as the code in
   // ResetPrimalInfeasibilityInformation(), but we do need the clear part.
   SCOPED_TIME_STAT(&stats_);
-  const Fractional tolerance = parameters_.primal_feasibility_tolerance();
+  const Fractional tolerance =
+      FromString(parameters_.primal_feasibility_tolerance());
   for (const RowIndex row : rows) {
     const ColIndex col = basis_[row];
     const Fractional infeasibility = std::max(GetUpperBoundInfeasibility(col),

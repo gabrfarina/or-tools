@@ -98,7 +98,8 @@ Status EnteringVariable::DualChooseEnteringColumn(
 
   breakpoints_.clear();
   breakpoints_.reserve(update_row.GetNonZeroPositions().size());
-  const Fractional threshold = parameters_.ratio_test_zero_threshold();
+  const Fractional threshold =
+      FromString(parameters_.ratio_test_zero_threshold());
   const DenseBitRow& can_decrease = variables_info_.GetCanDecreaseBitRow();
   const DenseBitRow& can_increase = variables_info_.GetCanIncreaseBitRow();
   const DenseBitRow& is_boxed = variables_info_.GetNonBasicBoxedVariables();
@@ -107,7 +108,7 @@ Status EnteringVariable::DualChooseEnteringColumn(
   // prune the first pass by not enqueueing ColWithRatio for columns that have
   // a ratio greater than the current harris_ratio.
   const Fractional harris_tolerance =
-      parameters_.harris_tolerance_ratio() *
+      FromString(parameters_.harris_tolerance_ratio()) *
       reduced_costs_->GetDualFeasibilityTolerance();
   Fractional harris_ratio = std::numeric_limits<Fractional>::max();
 
@@ -125,7 +126,7 @@ Status EnteringVariable::DualChooseEnteringColumn(
         if (-reduced_costs[col] > harris_ratio * coeff) continue;
         harris_ratio = std::min(
             harris_ratio, (-reduced_costs[col] + harris_tolerance) / coeff);
-        harris_ratio = std::max(0.0, harris_ratio);
+        harris_ratio = std::max(Fractional{0.0}, harris_ratio);
       }
       breakpoints_.push_back(ColWithRatio(col, -reduced_costs[col], coeff));
       continue;
@@ -138,7 +139,7 @@ Status EnteringVariable::DualChooseEnteringColumn(
         if (reduced_costs[col] > harris_ratio * -coeff) continue;
         harris_ratio = std::min(
             harris_ratio, (reduced_costs[col] + harris_tolerance) / -coeff);
-        harris_ratio = std::max(0.0, harris_ratio);
+        harris_ratio = std::max(Fractional{0.0}, harris_ratio);
       }
       breakpoints_.push_back(ColWithRatio(col, reduced_costs[col], -coeff));
       continue;
@@ -210,7 +211,7 @@ Status EnteringVariable::DualChooseEnteringColumn(
       // negative. In this case we set it to 0.0, allowing any infeasible
       // position to enter the basis. This is quite important because its
       // helps in the choice of a stable pivot.
-      harris_ratio = std::max(harris_ratio, 0.0);
+      harris_ratio = std::max(harris_ratio, Fractional{0.0});
 
       if (top.coeff_magnitude == best_coeff && top.ratio == *step) {
         DCHECK_NE(*entering_col, kInvalidCol);
@@ -280,7 +281,8 @@ Status EnteringVariable::DualPhaseIChooseEnteringColumn(
   breakpoints_.reserve(update_row.GetNonZeroPositions().size());
 
   // Ratio test.
-  const Fractional threshold = parameters_.ratio_test_zero_threshold();
+  const Fractional threshold =
+      FromString(parameters_.ratio_test_zero_threshold());
   const Fractional dual_feasibility_tolerance =
       reduced_costs_->GetDualFeasibilityTolerance();
   const DenseBitRow& can_decrease = variables_info_.GetCanDecreaseBitRow();

@@ -96,11 +96,14 @@ bool ReducedCosts::TestEnteringReducedCostPrecision(
   if (!recompute_reduced_costs_) {
     const Fractional estimated_reduced_costs_accuracy =
         old_reduced_cost - precise_reduced_cost;
-    const Fractional scale =
-        (std::abs(precise_reduced_cost) <= 1.0) ? 1.0 : precise_reduced_cost;
-    stats_.reduced_costs_accuracy.Add(estimated_reduced_costs_accuracy / scale);
+    const Fractional scale = (std::abs(precise_reduced_cost) <= 1.0)
+                                 ? Fractional{1.0}
+                                 : precise_reduced_cost;
+    // XXX(gfarina): Do not force to double
+    stats_.reduced_costs_accuracy.Add(
+        ToDouble(estimated_reduced_costs_accuracy / scale));
     if (std::abs(estimated_reduced_costs_accuracy) / scale >
-        parameters_.recompute_reduced_costs_threshold()) {
+        FromString(parameters_.recompute_reduced_costs_threshold())) {
       VLOG(1) << "Recomputing reduced costs, value = " << precise_reduced_cost
               << " error = "
               << std::abs(precise_reduced_cost - old_reduced_cost);
@@ -249,13 +252,18 @@ void ReducedCosts::PerturbCosts() {
         std::max(max_cost_magnitude, std::abs(objective_[col]));
   }
 
+  const Fractional relative_cost_perturbation =
+      FromString(parameters_.relative_cost_perturbation());
+  const Fractional relative_max_cost_perturbation =
+      FromString(parameters_.relative_max_cost_perturbation());
+
   cost_perturbations_.AssignToZero(matrix_.num_cols());
   for (ColIndex col(0); col < structural_size; ++col) {
     const Fractional objective = objective_[col];
     const Fractional magnitude =
         (1.0 + std::uniform_real_distribution<double>()(*random_)) *
-        (parameters_.relative_cost_perturbation() * std::abs(objective) +
-         parameters_.relative_max_cost_perturbation() * max_cost_magnitude);
+        (relative_cost_perturbation * std::abs(objective) +
+         relative_max_cost_perturbation * max_cost_magnitude);
     DCHECK_GE(magnitude, 0.0);
 
     // The perturbation direction is such that a dual-feasible solution stays
@@ -290,7 +298,8 @@ void ReducedCosts::PerturbCosts() {
 
 void ReducedCosts::ShiftCost(ColIndex col) {
   SCOPED_TIME_STAT(&stats_);
-  const Fractional kToleranceFactor = parameters_.degenerate_ministep_factor();
+  const Fractional kToleranceFactor =
+      FromString(parameters_.degenerate_ministep_factor());
   const Fractional small_step =
       dual_feasibility_tolerance_ *
       (reduced_costs_[col] > 0.0 ? kToleranceFactor : -kToleranceFactor);
@@ -354,6 +363,7 @@ void ReducedCosts::ComputeBasicObjective() {
 }
 
 void ReducedCosts::ComputeReducedCosts() {
+  // std::cout << "Computing reduced costs..." << std::endl;
   SCOPED_TIME_STAT(&stats_);
   if (recompute_basic_objective_left_inverse_) {
     ComputeBasicObjectiveLeftInverse();
@@ -417,7 +427,8 @@ void ReducedCosts::ComputeReducedCosts() {
   // dfl001.mps with a low dual_feasibility_tolerance). Note that since we
   // recompute the reduced costs with maximum precision before really exiting,
   // it is fine to do a couple of iterations with a high zero tolerance.
-  dual_feasibility_tolerance_ = parameters_.dual_feasibility_tolerance();
+  dual_feasibility_tolerance_ =
+      FromString(parameters_.dual_feasibility_tolerance());
   if (dual_residual_error > dual_feasibility_tolerance_) {
     VLOG(2) << "Changing dual_feasibility_tolerance to " << dual_residual_error;
     dual_feasibility_tolerance_ = dual_residual_error;

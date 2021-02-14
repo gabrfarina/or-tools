@@ -147,7 +147,7 @@ class LPSolver {
   // executed.
   //
   // TODO(user): Improve the correlation with the running time.
-  double DeterministicTime() const;
+  Fractional DeterministicTime() const;
 
  private:
   // Resizes all the solution vectors to the given sizes.
@@ -187,13 +187,13 @@ class LPSolver {
 
   // Computes the primal/dual objectives (without the offset). Note that the
   // dual objective needs the reduced costs in addition to the dual values.
-  double ComputeObjective(const LinearProgram& lp);
-  double ComputeDualObjective(const LinearProgram& lp);
+  Fractional ComputeObjective(const LinearProgram& lp);
+  Fractional ComputeDualObjective(const LinearProgram& lp);
 
   // Given a relative precision on the primal values of up to
   // solution_feasibility_tolerance(), this returns an upper bound on the
   // expected precision of the objective.
-  double ComputeMaxExpectedObjectiveError(const LinearProgram& lp);
+  Fractional ComputeMaxExpectedObjectiveError(const LinearProgram& lp);
 
   // Returns the max absolute cost pertubation (resp. rhs perturbation) so that
   // the pair (primal values, dual values) is an EXACT optimal solution to the
@@ -222,14 +222,14 @@ class LPSolver {
   //
   // These function also set is_too_large to true if any infeasibility is
   // greater than the tolerance (which depends of the coordinate).
-  double ComputePrimalValueInfeasibility(const LinearProgram& lp,
-                                         bool* is_too_large);
-  double ComputeActivityInfeasibility(const LinearProgram& lp,
-                                      bool* is_too_large);
-  double ComputeDualValueInfeasibility(const LinearProgram& lp,
-                                       bool* is_too_large);
-  double ComputeReducedCostInfeasibility(const LinearProgram& lp,
-                                         bool* is_too_large);
+  Fractional ComputePrimalValueInfeasibility(const LinearProgram& lp,
+                                             bool* is_too_large);
+  Fractional ComputeActivityInfeasibility(const LinearProgram& lp,
+                                          bool* is_too_large);
+  Fractional ComputeDualValueInfeasibility(const LinearProgram& lp,
+                                           bool* is_too_large);
+  Fractional ComputeReducedCostInfeasibility(const LinearProgram& lp,
+                                             bool* is_too_large);
 
   // On a call to Solve(), this is initialized to an exact copy of the given
   // linear program. It is later modified by the preprocessors and then solved

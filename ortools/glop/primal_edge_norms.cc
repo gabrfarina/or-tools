@@ -73,11 +73,12 @@ void PrimalEdgeNorms::TestEnteringEdgeNormPrecision(
     const Fractional precise_norm = sqrt(precise_squared_norm);
     const Fractional estimated_edges_norm_accuracy =
         (precise_norm - sqrt(old_squared_norm)) / precise_norm;
-    stats_.edges_norm_accuracy.Add(estimated_edges_norm_accuracy);
+    // XXX(gfarina): Do not force to double
+    stats_.edges_norm_accuracy.Add(ToDouble(estimated_edges_norm_accuracy));
     if (std::abs(estimated_edges_norm_accuracy) >
-        parameters_.recompute_edges_norm_threshold()) {
-      VLOG(1) << "Recomputing edge norms: " << sqrt(precise_squared_norm)
-              << " vs " << sqrt(old_squared_norm);
+        FromString(parameters_.recompute_edges_norm_threshold())) {
+      std::cout << "Recomputing edge norms: " << sqrt(precise_squared_norm)
+                << " vs " << sqrt(old_squared_norm) << std::endl;
       recompute_edge_squared_norms_ = true;
     }
   }
@@ -198,10 +199,10 @@ void PrimalEdgeNorms::UpdateEdgeSquaredNorms(ColIndex entering_col,
   // TestEnteringEdgeNormPrecision().
   const Fractional entering_squared_norm = edge_squared_norms_[entering_col];
   const Fractional leaving_squared_norm =
-      std::max(1.0, entering_squared_norm / Square(pivot));
+      std::max(Fractional{1.0}, entering_squared_norm / Square(pivot));
 
   int stat_lower_bounded_norms = 0;
-  const Fractional factor = 2.0 / pivot;
+  const Fractional factor = Fractional{2.0} / pivot;
   for (const ColIndex col : update_row.GetNonZeroPositions()) {
     const Fractional coeff = update_row.GetCoefficient(col);
     const Fractional scalar_product = compact_matrix_.ColumnScalarProduct(
@@ -240,7 +241,7 @@ void PrimalEdgeNorms::UpdateDevexWeights(
   const Fractional entering_norm = sqrt(PreciseSquaredNorm(direction));
   const Fractional pivot_magnitude = std::abs(direction[leaving_row]);
   const Fractional leaving_norm =
-      std::max(1.0, entering_norm / pivot_magnitude);
+      std::max(Fractional{1.0}, entering_norm / pivot_magnitude);
   for (const ColIndex col : update_row.GetNonZeroPositions()) {
     const Fractional coeff = update_row.GetCoefficient(col);
     const Fractional update_vector_norm = std::abs(coeff) * leaving_norm;

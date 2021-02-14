@@ -96,7 +96,7 @@ void UpdateRow::ComputeUpdateRow(RowIndex leaving_row) {
     // that, we will not get the exact same result depending on the algortihm
     // used below because the ComputeUpdatesColumnWise() will still use these
     // small entries (no complexity changes).
-    const Fractional drop_tolerance = parameters_.drop_tolerance();
+    const Fractional drop_tolerance = FromString(parameters_.drop_tolerance());
     unit_row_left_inverse_filtered_non_zeros_.clear();
     if (unit_row_left_inverse_.non_zeros.empty()) {
       const ColIndex size = unit_row_left_inverse_.values.size();
@@ -190,7 +190,7 @@ void UpdateRow::ComputeUpdatesRowWise() {
   }
 
   non_zero_position_list_.clear();
-  const Fractional drop_tolerance = parameters_.drop_tolerance();
+  const Fractional drop_tolerance = FromString(parameters_.drop_tolerance());
   for (const ColIndex col : variables_info_.GetIsRelevantBitRow()) {
     if (std::abs(coefficient_[col]) > drop_tolerance) {
       non_zero_position_list_.push_back(col);
@@ -226,7 +226,7 @@ void UpdateRow::ComputeUpdatesRowWiseHypersparse() {
   // Only keep in non_zero_position_set_ the relevant positions.
   non_zero_position_set_.Intersection(variables_info_.GetIsRelevantBitRow());
   non_zero_position_list_.clear();
-  const Fractional drop_tolerance = parameters_.drop_tolerance();
+  const Fractional drop_tolerance = FromString(parameters_.drop_tolerance());
   for (const ColIndex col : non_zero_position_set_) {
     // TODO(user): Since the solution is really sparse, maybe storing the
     // non-zero coefficients contiguously in a vector is better than keeping
@@ -244,7 +244,7 @@ void UpdateRow::ComputeUpdatesRowWiseHypersparse() {
 void UpdateRow::RecomputeFullUpdateRow(RowIndex leaving_row) {
   CHECK(!compute_update_row_);
   const ColIndex num_cols = matrix_.num_cols();
-  const Fractional drop_tolerance = parameters_.drop_tolerance();
+  const Fractional drop_tolerance = FromString(parameters_.drop_tolerance());
   coefficient_.resize(num_cols, 0.0);
   non_zero_position_list_.clear();
 
@@ -267,7 +267,7 @@ void UpdateRow::ComputeUpdatesColumnWise() {
   SCOPED_TIME_STAT(&stats_);
 
   const ColIndex num_cols = matrix_.num_cols();
-  const Fractional drop_tolerance = parameters_.drop_tolerance();
+  const Fractional drop_tolerance = FromString(parameters_.drop_tolerance());
   coefficient_.resize(num_cols, 0.0);
   non_zero_position_list_.clear();
   for (const ColIndex col : variables_info_.GetIsRelevantBitRow()) {
