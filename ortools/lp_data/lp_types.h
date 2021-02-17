@@ -73,7 +73,8 @@ DEFINE_INT_TYPE(EntryIndex, int64);
 // DoubleDouble, QuadDouble, or infinite-precision rationals.
 // Floating-point representations are binary fractional numbers, thus the name.
 // (See http://en.wikipedia.org/wiki/Fraction_(mathematics) .)
-typedef mp::number<mp::mpfr_float_backend<40>> Fractional;
+// using Fractional = mp::number<mp::mpfr_float_backend<40>>;
+using Fractional = mp::mpfr_float_100;
 
 static inline double ToDouble(double f) { return f; }
 
