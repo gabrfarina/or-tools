@@ -170,7 +170,7 @@ Fractional ReducedCosts::ComputeSumOfDualInfeasibilities() const {
     const Fractional rc = reduced_costs_[col];
     if ((can_increase.IsSet(col) && rc < 0.0) ||
         (can_decrease.IsSet(col) && rc > 0.0)) {
-      dual_infeasibility_sum += std::abs(std::abs(rc));
+      dual_infeasibility_sum += std::abs(rc);
     }
   }
   return dual_infeasibility_sum;
