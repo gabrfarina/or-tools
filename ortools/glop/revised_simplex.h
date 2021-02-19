@@ -94,6 +94,9 @@
 #include <string>
 #include <vector>
 
+#include "external/spdlog/include/spdlog/pattern_formatter.h"
+#include "external/spdlog/include/spdlog/sinks/stdout_color_sinks.h"
+#include "external/spdlog/include/spdlog/spdlog.h"
 #include "ortools/base/integral_types.h"
 #include "ortools/base/macros.h"
 #include "ortools/glop/basis_representation.h"
@@ -799,6 +802,8 @@ class RevisedSimplex {
 
   // This is used by Polish().
   DenseRow integrality_scale_;
+
+  std::shared_ptr<spdlog::logger> logger_;
 
   DISALLOW_COPY_AND_ASSIGN(RevisedSimplex);
 };

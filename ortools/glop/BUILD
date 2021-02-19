@@ -41,6 +41,7 @@ cc_library(
         "//ortools/util:time_limit",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@spdlog",
     ],
 )
 

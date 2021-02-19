@@ -114,6 +114,13 @@ RevisedSimplex::RevisedSimplex()
       feasibility_phase_(true),
       random_(kDeterministicSeed) {
   SetParameters(parameters_);
+
+  logger_ = spdlog::get("glop");
+  if (!logger_) {
+    logger_ = spdlog::stdout_color_mt("glop");
+    logger_->set_pattern("[%E.%e|%^%l%$] [%n] %v");
+  }
+  assert(logger_);
 }
 
 void RevisedSimplex::ClearStateForNextSolve() {
@@ -177,15 +184,15 @@ Status RevisedSimplex::Solve(const LinearProgram& lp, TimeLimit* time_limit) {
   }
 
   const bool use_dual = parameters_.use_dual_simplex();
-  std::cout << "------ " << (use_dual ? "Dual simplex." : "Primal simplex.")
-            << std::endl;
-  std::cout << "The matrix has " << compact_matrix_.num_rows() << " rows, "
-            << compact_matrix_.num_cols() << " columns, "
-            << compact_matrix_.num_entries() << " entries." << std::endl;
+  logger_->info("------ {}", use_dual ? "Dual simplex." : "Primal simplex.");
+  logger_->info("The matrix has {} rows, {} columns, {} entries.",
+                compact_matrix_.num_rows().value(),
+                compact_matrix_.num_cols().value(),
+                compact_matrix_.num_entries().value());
 
   // TODO(user): Avoid doing the first phase checks when we know from the
   // incremental solve that the solution is already dual or primal feasible.
-  std::cout << "------ First phase: feasibility." << std::endl;
+  logger_->info("------ First phase: feasibility.");
   entering_variable_.SetPricingRule(parameters_.feasibility_rule());
   if (use_dual) {
     if (parameters_.perturb_costs_in_dual_simplex()) {
@@ -239,7 +246,7 @@ Status RevisedSimplex::Solve(const LinearProgram& lp, TimeLimit* time_limit) {
   entering_variable_.SetPricingRule(parameters_.optimization_rule());
   num_feasibility_iterations_ = num_iterations_;
 
-  std::cout << "------ Second phase: optimization." << std::endl;
+  logger_->info("------ Second phase: optimization.");
 
   // Because of shifts or perturbations, we may need to re-run a dual simplex
   // after the primal simplex finished, or the opposite.
@@ -938,8 +945,9 @@ void RevisedSimplex::InitializeVariableStatusesForWarmStart(
     if (status == VariableStatus::BASIC) {
       // Do not allow more than num_rows_ VariableStatus::BASIC variables.
       if (num_basic_variables == num_rows_) {
-        VLOG(1) << "Too many basic variables in the warm-start basis."
-                << "Only keeping the first ones as VariableStatus::BASIC.";
+        logger_->warn(
+            "Too many basic variables in the warm-start basis."
+            "Only keeping the first ones as VariableStatus::BASIC.");
         variables_info_.UpdateToNonBasicStatus(col, default_status);
       } else {
         ++num_basic_variables;
@@ -1147,7 +1155,7 @@ Status RevisedSimplex::InitializeFirstBasis(const RowToColMapping& basis) {
     const std::string error_message =
         absl::StrCat("The matrix condition number upper bound is too high: ",
                      Stringify(condition_number_ub));
-    std::cout << error_message << std::endl;
+    logger_->info("{}", error_message);
     return Status(Status::ERROR_LU, error_message);
   }
 
@@ -1164,12 +1172,11 @@ Status RevisedSimplex::InitializeFirstBasis(const RowToColMapping& basis) {
   const Fractional tolerance =
       FromString(parameters_.primal_feasibility_tolerance());
   if (variable_values_.ComputeMaximumPrimalResidual() > tolerance) {
-    std::cout << absl::StrCat(
-                     "The primal residual of the initial basis is above the "
-                     "tolerance, ",
-                     Stringify(variable_values_.ComputeMaximumPrimalResidual()),
-                     " vs. ", Stringify(tolerance))
-              << std::endl;
+    logger_->info(
+        "The primal residual of the initial basis is above the "
+        "tolerance, {} vs. {}",
+        Stringify(variable_values_.ComputeMaximumPrimalResidual()),
+        Stringify(tolerance));
   }
   return Status::OK();
 }
@@ -1323,16 +1330,16 @@ Status RevisedSimplex::Initialize(const LinearProgram& lp) {
     if (InitializeFirstBasis(basis_).ok()) {
       solve_from_scratch = false;
     } else {
-      std::cout << "RevisedSimplex is not using the warm start "
-                   "basis because it is not factorizable."
-                << std::endl;
+      logger_->info(
+          "RevisedSimplex is not using the warm start basis because it is not "
+          "factorizable.");
       return Status(Status::ErrorCode::INVALID_BASIS,
                     "The supplied basis is not invertible");
     }
   }
 
   if (solve_from_scratch) {
-    std::cout << "Solve from scratch." << std::endl;
+    logger_->warn("Solve from scratch.");
     basis_factorization_.Clear();
     reduced_costs_.ClearAndRemoveCostShifts();
     primal_edge_norms_.Clear();
@@ -1340,7 +1347,7 @@ Status RevisedSimplex::Initialize(const LinearProgram& lp) {
     dual_pricing_vector_.clear();
     GLOP_RETURN_IF_ERROR(CreateInitialBasis());
   } else {
-    std::cout << "Incremental solve." << std::endl;
+    logger_->info("Incremental solve.");
   }
   assert(BasisIsConsistent());
   return Status::OK();
@@ -3097,7 +3104,6 @@ void RevisedSimplex::PropagateParameters() {
 }
 
 void RevisedSimplex::DisplayIterationInfo() const {
-  // if (VLOG_IS_ON(1)) {
   const int iter = feasibility_phase_
                        ? num_iterations_
                        : num_iterations_ - num_feasibility_iterations_;
@@ -3111,28 +3117,19 @@ void RevisedSimplex::DisplayIterationInfo() const {
           : (parameters_.use_dual_simplex()
                  ? reduced_costs_.ComputeSumOfDualInfeasibilities()
                  : variable_values_.ComputeSumOfPrimalInfeasibilities());
-  std::cout << (feasibility_phase_ ? "Feasibility" : "Optimization")
-            << " phase, iteration # " << iter
-            << ", objective = " << Stringify(objective);
-  if (!feasibility_phase_) {
-    std::cout << "     [dual inf. = "
-              << Stringify(reduced_costs_.ComputeSumOfDualInfeasibilities())
-              << "]";
-  }
-  std::cout << std::endl;
-  // }
+  logger_->info("     ITERATION {:6} -> OBJ = {}", iter, Stringify(objective));
 }
 
 void RevisedSimplex::DisplayErrors() const {
-  std::cout << "Primal infeasibility (bounds) = "
-            << variable_values_.ComputeMaximumPrimalInfeasibility()
-            << std::endl;
-  std::cout << "Primal residual |A.x - b| = "
-            << variable_values_.ComputeMaximumPrimalResidual() << std::endl;
-  std::cout << "Dual infeasibility (reduced costs) = "
-            << reduced_costs_.ComputeMaximumDualInfeasibility() << std::endl;
-  std::cout << "Dual residual |c_B - y.B| = "
-            << reduced_costs_.ComputeMaximumDualResidual() << std::endl;
+  logger_->info(
+      "Primal infeasibility (bounds) = {}",
+      Stringify(variable_values_.ComputeMaximumPrimalInfeasibility()));
+  logger_->info("Primal residual |A.x - b| = {}",
+                Stringify(variable_values_.ComputeMaximumPrimalResidual()));
+  logger_->info("Dual infeasibility (reduced costs) = {}",
+                Stringify(reduced_costs_.ComputeMaximumDualInfeasibility()));
+  logger_->info("Dual residual |c_B - y.B| = {}",
+                Stringify(reduced_costs_.ComputeMaximumDualResidual()));
 }
 
 namespace {
