@@ -3111,13 +3111,18 @@ void RevisedSimplex::DisplayIterationInfo() const {
   // the dual objective even if it uses the variable values. This is because
   // if we modify the bounds to make the problem primal-feasible, we are at
   // the optimal and hence the two objectives are the same.
-  const Fractional objective =
-      !feasibility_phase_
-          ? ComputeInitialProblemObjectiveValue()
-          : (parameters_.use_dual_simplex()
-                 ? reduced_costs_.ComputeSumOfDualInfeasibilities()
-                 : variable_values_.ComputeSumOfPrimalInfeasibilities());
-  logger_->info("     ITERATION {:6} -> OBJ = {}", iter, Stringify(objective));
+  if (feasibility_phase_) {
+    const Fractional objective =
+        (parameters_.use_dual_simplex()
+             ? reduced_costs_.ComputeSumOfDualInfeasibilities()
+             : variable_values_.ComputeSumOfPrimalInfeasibilities());
+    logger_->info("     ITERATION {:6} -> INFEAS = {}", iter,
+                  Stringify(objective));
+  } else {
+    const Fractional objective = ComputeInitialProblemObjectiveValue();
+    logger_->info("     ITERATION {:6} ->    OBJ = {}", iter,
+                  Stringify(objective));
+  }
 }
 
 void RevisedSimplex::DisplayErrors() const {
